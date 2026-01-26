@@ -1,50 +1,79 @@
-# Welcome to your Expo app 👋
+# 📚 LIBSYS Mobile - Frontend
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+LIBSYS Mobile is a modern, cross-platform mobile application frontend built with **React Native** and **Expo**. This project focuses on providing a clean and intuitive user interface for the Libsys library management system.
 
-## Get started
+## 🚀 Technologies
 
-1. Install dependencies
+- **[React Native](https://reactnative.dev/)** - Core framework
+- **[Expo](https://expo.dev/)** - Development platform
+- **[TypeScript](https://www.typescriptlang.org/)** - Static typing
+- **[React Navigation](https://reactnavigation.org/)** - Navigation management
+- **[Expo Router](https://docs.expo.dev/router/introduction/)** - File-based routing (configured)
 
+## 📁 Project Structure
+
+```text
+src/
+├── api/          # API service configurations
+├── assets/       # Static assets (images, fonts)
+├── components/   # Reusable UI components
+├── constants/    # App constants and theme
+├── hooks/        # Custom React hooks
+├── navigation/   # Navigation configuration & types
+├── screens/      # Application screens (Dashboard, Login, etc.)
+├── services/     # Business logic & services
+└── utils/        # Helper functions
+```
+
+## 🛠️ Getting Started
+
+### Prerequisites
+
+- Node.js (Latest LTS recommended)
+- npm or yarn
+- Expo Go app on your mobile device (for testing)
+
+### Installation
+
+1. Clone the repository:
+
+   ```bash
+   git clone <repository-url>
+   cd "Libsys Mobile"
+   ```
+
+2. Install dependencies:
    ```bash
    npm install
    ```
 
-2. Start the app
+### Running the App
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Start the development server:
 
 ```bash
-npm run reset-project
+npm start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+- Press `a` for Android emulator
+- Press `i` for iOS simulator
+- Press `w` for web
+- Scan the QR code with Expo Go (Android) or Camera app (iOS) to run on your physical device.
 
-## Learn more
+## 📱 Features
 
-To learn more about developing your project with Expo, look at the following resources:
+- **Authentication**: Modern login interface.
+- **Dashboard**: Overview of library activities and stats.
+- **Cross-Platform**: Compatible with Android, iOS, and Web.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## 📜 Scripts
 
-## Join the community
+- `npm start`: Starts the Expo development server.
+- `npm run android`: Opens the app on an Android emulator/device.
+- `npm run ios`: Opens the app on an iOS simulator.
+- `npm run web`: Opens the app in a web browser.
+- `npm run lint`: Runs ESLint for code quality checks.
 
-Join our community of developers creating universal apps.
+---
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+_Built with ❤️ for Libsys._
