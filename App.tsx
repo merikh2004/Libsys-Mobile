@@ -1,8 +1,8 @@
 import React from "react";
 import "react-native-gesture-handler";
-import AppNavigator from "./src/navigation/AppNavigator"; // Siguraduhing tama ang path na ito
+import AppNavigator from "./src/navigation/AppNavigator";
+import "./src/styles/global.css";
 
 export default function App() {
-  // Ang AppNavigator ang "pangunahing gate" ng app mo
   return <AppNavigator />;
 }
