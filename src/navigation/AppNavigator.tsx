@@ -1,21 +1,26 @@
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
-import React from "react";
-import { RootStackParamList } from "./types";
+import React, { useState } from "react";
+import DashboardScreen from "../screens/DashboardScreen";
+import AuthNavigator from "./AuthNavigator";
 
-import LoginScreen from "../screens/LoginScreen";
-
-const Stack = createStackNavigator<RootStackParamList>();
+const Stack = createStackNavigator();
 
 const AppNavigator = () => {
+  // Samantala, manual muna nating i-set kung 'isLoggedIn'
+  // Kapag naging 'true' ito, automatic lilipat sa Dashboard
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="Login">
-        <Stack.Screen
-          name="Login"
-          component={LoginScreen}
-          options={{ headerShown: false }} 
-        />
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {isLoggedIn ? (
+          // MAIN FLOW: Kapag naka-login na
+          <Stack.Screen name="Dashboard" component={DashboardScreen} />
+        ) : (
+          // AUTH FLOW: Kapag kailangan pa mag-login
+          <Stack.Screen name="Auth" component={AuthNavigator} />
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );
