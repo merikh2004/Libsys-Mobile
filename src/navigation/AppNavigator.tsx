@@ -1,15 +1,15 @@
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
-import React, { useState } from "react";
+import React from "react";
+import { useAuth } from "../context/AuthContext"; // 1. I-import ang useAuth hook
 import DashboardScreen from "../screens/DashboardScreen";
 import AuthNavigator from "./AuthNavigator";
 
 const Stack = createStackNavigator();
 
 const AppNavigator = () => {
-  // Samantala, manual muna nating i-set kung 'isLoggedIn'
-  // Kapag naging 'true' ito, automatic lilipat sa Dashboard
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // 2. Kunin ang global state mula sa context
+  const { isLoggedIn } = useAuth();
 
   return (
     <NavigationContainer>

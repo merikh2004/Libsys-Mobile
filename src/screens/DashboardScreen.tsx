@@ -1,15 +1,28 @@
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { useAuth } from "../context/AuthContext"; // 1. I-import ang useAuth
 
 const DashboardScreen = () => {
+  // 2. Kunin ang logout function mula sa context
+  const { logout } = useAuth();
+
   return (
     <ScrollView className="flex-1 bg-slate-50 p-6">
       {/* Header Section */}
-      <View className="mt-8 mb-6">
-        <Text className="text-sm text-slate-500 font-medium">
-          UCC Library System
-        </Text>
-        <Text className="text-3xl font-bold text-slate-900">Dashboard</Text>
+      <View className="mt-8 mb-6 flex-row justify-between items-center">
+        <View>
+          <Text className="text-sm text-slate-500 font-medium">
+            UCC Library System
+          </Text>
+          <Text className="text-3xl font-bold text-slate-900">Dashboard</Text>
+        </View>
+        {/* 3. Idagdag ang Logout Button */}
+        <TouchableOpacity
+          onPress={logout}
+          className="bg-red-500 px-4 py-2 rounded-lg"
+        >
+          <Text className="text-white font-bold text-sm">Logout</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Welcome Card */}

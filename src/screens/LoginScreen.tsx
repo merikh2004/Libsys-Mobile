@@ -1,6 +1,7 @@
-import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -9,39 +10,70 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from "react-native";
+} from 'react-native';
+import { useAuth } from '../context/AuthContext'; // 1. I-import ang useAuth
+import { loginUser } from '../services/auth';
 
 const LoginScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // 2. Kunin ang login function mula sa context
+  const { login } = useAuth();
+
+  const handleLogin = async () => {
+    if (!identifier || !password) {
+      setError('Pakilagay ang iyong username at password.');
+      return;
+    }
+
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const result = await loginUser({ identifier, password });
+
+      if (result.success) {
+        // 3. SUCCESS! Tawagin ang login function mula sa context.
+        // Ito na ang magti-trigger ng paglipat sa Dashboard.
+        login();
+      } else {
+        setError(result.error || 'Nagkaroon ng hindi inaasahang error.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <View className="flex-1 bg-[#F5F7F2] justify-center items-center">
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1 justify-center items-center w-full"
       >
         <ScrollView
           contentContainerStyle={{
             flexGrow: 1,
-            justifyContent: "center",
-            alignItems: "center",
+            justifyContent: 'center',
+            alignItems: 'center',
           }}
           showsVerticalScrollIndicator={false}
           className="w-full"
         >
-          {/* Card Container - Fixed Width for "App-like" feel */}
           <View className="bg-white w-[320px] rounded-[30px] p-6 shadow-xl shadow-slate-200/50">
-            {/* Logo Section */}
+            {/* Logo at Title */}
             <View className="items-center mb-6">
               <View className="w-16 h-16 items-center justify-center mb-2">
                 <Image
-                  source={require("../assets/logo.png")} // Dito mo ilagay ang path
+                  source={require('../assets/logo.png')}
                   style={{ width: 100, height: 100 }}
                   resizeMode="contain"
                 />
               </View>
-
               <Text className="text-xl font-bold text-slate-900 text-center mb-1">
                 Library Management System
               </Text>
@@ -55,12 +87,7 @@ const LoginScreen = () => {
               {/* Username Input */}
               <View className="mb-4">
                 <View className="flex-row items-center mb-1.5 ml-1">
-                  <Ionicons
-                    name="person-outline"
-                    size={14}
-                    color="#64748b"
-                    fontWeight="bold"
-                  />
+                  <Ionicons name="person-outline" size={14} color="#64748b" />
                   <Text className="text-slate-700 font-semibold ml-1.5 text-xs tracking-wider">
                     Username
                   </Text>
@@ -68,25 +95,23 @@ const LoginScreen = () => {
                 <TextInput
                   placeholder="Enter your student number"
                   placeholderTextColor="#94a3b8"
-                  onFocus={() => setFocusedInput("user")}
+                  value={identifier}
+                  onChangeText={setIdentifier}
+                  onFocus={() => setFocusedInput('user')}
                   onBlur={() => setFocusedInput(null)}
+                  autoCapitalize="none"
                   className={`w-full bg-white px-4 py-3 rounded-xl border ${
-                    focusedInput === "user"
-                      ? "border-[#fa7b36] border-2"
-                      : "border-gray-200 border"
+                    focusedInput === 'user'
+                      ? 'border-[#fa7b36] border-2'
+                      : 'border-gray-200 border'
                   } text-slate-800 text-sm`}
                 />
               </View>
 
               {/* Password Input */}
-              <View className="mb-6">
+              <View>
                 <View className="flex-row items-center mb-1.5 ml-1">
-                  <Ionicons
-                    name="key-outline"
-                    size={14}
-                    color="#64748b"
-                    fontWeight="bold"
-                  />
+                  <Ionicons name="key-outline" size={14} color="#64748b" />
                   <Text className="text-slate-700 font-semibold ml-1.5 text-xs tracking-wider">
                     Password
                   </Text>
@@ -96,12 +121,14 @@ const LoginScreen = () => {
                     placeholder="Enter your password"
                     placeholderTextColor="#94a3b8"
                     secureTextEntry={!showPassword}
-                    onFocus={() => setFocusedInput("pass")}
+                    value={password}
+                    onChangeText={setPassword}
+                    onFocus={() => setFocusedInput('pass')}
                     onBlur={() => setFocusedInput(null)}
                     className={`w-full bg-white px-4 py-3 rounded-xl border ${
-                      focusedInput === "pass"
-                        ? "border-[#fa7b36] border-2"
-                        : "border-gray-200 border"
+                      focusedInput === 'pass'
+                        ? 'border-[#fa7b36] border-2'
+                        : 'border-gray-200 border'
                     } text-slate-800 text-sm pr-12`}
                   />
                   <TouchableOpacity
@@ -109,7 +136,7 @@ const LoginScreen = () => {
                     onPress={() => setShowPassword(!showPassword)}
                   >
                     <Ionicons
-                      name={showPassword ? "eye-off-outline" : "eye-outline"}
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                       size={20}
                       color="#94a3b8"
                     />
@@ -117,9 +144,28 @@ const LoginScreen = () => {
                 </View>
               </View>
 
+              {/* Error Message Display */}
+              {error && (
+                <View className="mt-4 mb-2 bg-red-100 p-3 rounded-lg">
+                  <Text className="text-red-600 text-center text-xs">
+                    {error}
+                  </Text>
+                </View>
+              )}
+
               {/* Login Button */}
-              <TouchableOpacity className="w-full bg-[#EA580C] py-3.5 rounded-xl items-center shadow-md shadow-orange-200 mb-4 active:bg-orange-700">
-                <Text className="text-white font-bold text-base">Login</Text>
+              <TouchableOpacity
+                onPress={handleLogin}
+                disabled={isLoading}
+                className={`w-full bg-[#EA580C] py-3.5 rounded-xl items-center shadow-md shadow-orange-200 mt-6 mb-4 ${
+                  isLoading ? 'opacity-50' : 'active:bg-orange-700'
+                }`}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text className="text-white font-bold text-base">Login</Text>
+                )}
               </TouchableOpacity>
 
               {/* Forgot Password */}
