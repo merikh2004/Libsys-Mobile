@@ -2,15 +2,15 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import Header from '../components/Header';
 
-const DashboardScreen = () => {
+const HistoryScreen = () => {
   return (
     <View className="flex-1 bg-slate-50">
       <Header />
       <View className="flex-1 justify-center items-center">
-        <Text className="text-lg">Home Screen</Text>
+        <Text className="text-lg">History Screen</Text>
       </View>
     </View>
   );
 };
 
-export default DashboardScreen;
+export default HistoryScreen;
