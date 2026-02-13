@@ -51,7 +51,7 @@ export const loginUser = async (
       return { success: true };
     } else {
       // Kung walang token sa response kahit 200 ang status, ituring itong error.
-      return { success: false, error: 'Walang access token na natanggap.' };
+      return { success: false, error: 'No access token received.' };
     }
   } catch (error) {
     // Dito papasok ang code kung may error sa API call (e.g., network issue, 401, 500)
@@ -62,13 +62,13 @@ export const loginUser = async (
       if (error.response?.status === 401) {
         return {
           success: false,
-          error: 'Mali ang iyong username o password. Pakisubukang muli.',
+          error: 'Invalid username or password. Please try again.',
         };
       }
       // Para sa ibang server errors (like 500 Internal Server Error)
       return {
         success: false,
-        error: `Nagkaroon ng problema sa server. (Status: ${
+        error: `A server error occurred. (Status: ${
           error.response?.status || 'N/A'
         })`,
       };
@@ -77,7 +77,7 @@ export const loginUser = async (
     // Para sa mga hindi inaasahang error (e.g., network down, etc.)
     return {
       success: false,
-      error: 'Hindi makakonekta sa server. Pakisuri ang iyong internet.',
+      error: 'Could not connect to the server. Please check your internet connection.',
     };
   }
 };

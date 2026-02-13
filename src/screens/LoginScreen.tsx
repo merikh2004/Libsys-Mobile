@@ -27,7 +27,7 @@ const LoginScreen = () => {
 
   const handleLogin = async () => {
     if (!identifier || !password) {
-      setError('Pakilagay ang iyong username at password.');
+      setError('Please enter your username and password.');
       return;
     }
 
@@ -42,7 +42,7 @@ const LoginScreen = () => {
         // Ito na ang magti-trigger ng paglipat sa Dashboard.
         login();
       } else {
-        setError(result.error || 'Nagkaroon ng hindi inaasahang error.');
+        setError(result.error || 'An unexpected error occurred.');
       }
     } finally {
       setIsLoading(false);
@@ -64,10 +64,10 @@ const LoginScreen = () => {
           showsVerticalScrollIndicator={false}
           className="w-full"
         >
-          <View className="bg-white w-[320px] rounded-[30px] p-6 shadow-xl shadow-slate-200/50">
+          <View className="w-full p-6 shadow-xl shadow-slate-200/50">
             {/* Logo at Title */}
-            <View className="items-center mb-6">
-              <View className="w-16 h-16 items-center justify-center mb-2">
+            <View className="items-center mb-8">
+              <View className="w-16 h-16 items-center justify-center mb-8">
                 <Image
                   source={require('../assets/logo.png')}
                   style={{ width: 100, height: 100 }}
@@ -88,7 +88,7 @@ const LoginScreen = () => {
               <View className="mb-4">
                 <View className="flex-row items-center mb-1.5 ml-1">
                   <Ionicons name="person-outline" size={14} color="#64748b" />
-                  <Text className="text-slate-700 font-semibold ml-1.5 text-xs tracking-wider">
+                  <Text className="text-slate-700 font-bold ml-1.5 text-xs tracking-wider">
                     Username
                   </Text>
                 </View>
@@ -112,7 +112,7 @@ const LoginScreen = () => {
               <View>
                 <View className="flex-row items-center mb-1.5 ml-1">
                   <Ionicons name="key-outline" size={14} color="#64748b" />
-                  <Text className="text-slate-700 font-semibold ml-1.5 text-xs tracking-wider">
+                  <Text className="text-slate-700 font-bold ml-1.5 text-xs tracking-wider">
                     Password
                   </Text>
                 </View>
