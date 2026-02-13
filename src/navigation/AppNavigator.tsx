@@ -1,25 +1,39 @@
-import { NavigationContainer } from "@react-navigation/native";
-import { createStackNavigator } from "@react-navigation/stack";
-import React from "react";
-import { useAuth } from "../context/AuthContext"; // 1. I-import ang useAuth hook
-import DashboardScreen from "../screens/DashboardScreen";
-import AuthNavigator from "./AuthNavigator";
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
+import React from 'react';
+import { useAuth } from '../context/AuthContext';
+import AuthNavigator from './AuthNavigator';
+import MainTabNavigator from './MainTabNavigator';
+import CartScreen from '../screens/CartScreen';
+import SettingsScreen from '../screens/SettingsScreen';
+import { RootStackParamList } from './types';
 
-const Stack = createStackNavigator();
+const Stack = createStackNavigator<RootStackParamList>();
 
 const AppNavigator = () => {
-  // 2. Kunin ang global state mula sa context
   const { isLoggedIn } = useAuth();
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator>
         {isLoggedIn ? (
-          // MAIN FLOW: Kapag naka-login na
-          <Stack.Screen name="Dashboard" component={DashboardScreen} />
+          // Authenticated flow
+          <>
+            <Stack.Screen
+              name="Main"
+              component={MainTabNavigator}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen name="Cart" component={CartScreen} />
+            <Stack.Screen name="Settings" component={SettingsScreen} />
+          </>
         ) : (
-          // AUTH FLOW: Kapag kailangan pa mag-login
-          <Stack.Screen name="Auth" component={AuthNavigator} />
+          // Auth flow
+          <Stack.Screen
+            name="Auth"
+            component={AuthNavigator}
+            options={{ headerShown: false }}
+          />
         )}
       </Stack.Navigator>
     </NavigationContainer>
