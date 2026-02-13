@@ -1,10 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
+import { NavigationProp, useNavigation } from '@react-navigation/native';
 import React from 'react';
 import { Image, SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { RootStackParamList } from '../navigation/types';
 
 const Header = () => {
   const { logout } = useAuth();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
   return (
     <SafeAreaView className="bg-white">
@@ -13,9 +16,7 @@ const Header = () => {
         <View className="flex-row items-center">
           <Image
             source={require('../assets/logo.png')}
-            // Idinagdag natin ang style prop para sigurado
-            style={{ width: 60, height: 60 }}
-            className="w-10 h-10"
+            style={{ width: 40, height: 40 }} // Adjusted for consistency
             resizeMode="contain"
           />
           <Text className="text-lg font-bold text-slate-800 ml-2">
@@ -25,10 +26,10 @@ const Header = () => {
 
         {/* Right Side: Icons */}
         <View className="flex-row items-center space-x-4">
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Cart')}>
             <Ionicons name="cart-outline" size={24} color="black" />
           </TouchableOpacity>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
             <Ionicons name="settings-outline" size={24} color="black" />
           </TouchableOpacity>
           <TouchableOpacity onPress={logout}>
@@ -41,3 +42,4 @@ const Header = () => {
 };
 
 export default Header;
+  
