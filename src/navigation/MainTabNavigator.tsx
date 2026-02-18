@@ -1,6 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import React from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../context/AuthContext'; // 1. I-import ang useAuth hook
 
 // Import all the screens for the tabs
 import DashboardScreen from '../screens/DashboardScreen';
@@ -12,6 +13,10 @@ import QRScreen from '../screens/QRScreen';
 const Tab = createBottomTabNavigator();
 
 const MainTabNavigator = () => {
+  // 2. Kunin ang user profile mula sa context
+  const { user } = useAuth();
+  const isStudent = user?.role === 'student';
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -53,12 +58,15 @@ const MainTabNavigator = () => {
       })}
     >
       <Tab.Screen name="Home" component={DashboardScreen} />
+      
       {/* 
-        NOTE: For now, we are defaulting to a 'student' role, so 'Attendance' is visible.
-        Later, this will be wrapped in a condition like:
-        {role === 'student' && <Tab.Screen ... />}
+        3. CONDITIONAL RENDERING: 
+        Ipakita lang ang Attendance tab kung ang user ay student.
       */}
-      <Tab.Screen name="Attendance" component={AttendanceScreen} />
+      {isStudent && (
+        <Tab.Screen name="Attendance" component={AttendanceScreen} />
+      )}
+      
       <Tab.Screen name="Books" component={BooksScreen} />
       <Tab.Screen name="History" component={HistoryScreen} />
       <Tab.Screen name="QR" component={QRScreen} />
