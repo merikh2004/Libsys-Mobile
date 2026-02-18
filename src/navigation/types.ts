@@ -4,4 +4,5 @@ export type RootStackParamList = {
   Main: undefined; // This is the MainTabNavigator
   Cart: undefined;
   Settings: undefined;
+  ChangePassword: undefined;
 };

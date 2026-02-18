@@ -38,11 +38,24 @@ const LoginScreen = () => {
       const result = await loginUser({ identifier, password });
 
       if (result.success) {
-        // 3. SUCCESS! Tawagin ang login function mula sa context.
-        // Ito na ang magti-trigger ng paglipat sa Dashboard.
-        login();
+        // 1. I-clear agad ang credentials sa state para mawala sa memory
+        setIdentifier('');
+        setPassword('');
+
+        // 2. I-check kung Web ang gamit
+        if (Platform.OS === 'web') {
+          // 3. HARD REDIRECT: Ginagamit ang replace("/") para mag-force reload.
+          // Dahil ang AuthContext ay nag-che-check ng token sa bootstrap (localStorage),
+          // automatic na magiging logged in ang user pagka-reload nang hindi naiiwan
+          // ang POST request sa Network tab logs.
+          window.location.replace('/');
+        } else {
+          // Para sa Mobile, normal na context update lang
+          login();
+        }
       } else {
         setError(result.error || 'An unexpected error occurred.');
+        setPassword('');
       }
     } finally {
       setIsLoading(false);
