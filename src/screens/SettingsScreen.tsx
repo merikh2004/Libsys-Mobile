@@ -218,31 +218,24 @@ const SettingsScreen = () => {
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
-      {Platform.OS === 'web' ? (
+    <View className="flex-1 bg-[#f8fafc]">
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1"
+      >
         <ScrollView 
-          style={{ flex: 1 }}
+          className="flex-1"
           contentContainerStyle={{ flexGrow: 1 }}
           showsVerticalScrollIndicator={true}
+          refreshControl={
+            Platform.OS !== 'web' ? (
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#EA580C']} />
+            ) : undefined
+          }
         >
           {MainContent}
         </ScrollView>
-      ) : (
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
-          <ScrollView 
-            style={{ flex: 1 }}
-            contentContainerStyle={{ flexGrow: 1 }}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#EA580C']} />
-            }
-          >
-            {MainContent}
-          </ScrollView>
-        </KeyboardAvoidingView>
-      )}
+      </KeyboardAvoidingView>
     </View>
   );
 };
