@@ -26,8 +26,16 @@ const AppNavigator = () => {
               options={{ headerShown: false }}
             />
             <Stack.Screen name="Cart" component={CartScreen} />
-            <Stack.Screen name="Settings" component={SettingsScreen} />
-            <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+            <Stack.Screen 
+              name="Settings" 
+              component={SettingsScreen} 
+              options={{ title: 'Profile' }} 
+            />
+            <Stack.Screen 
+              name="ChangePassword" 
+              component={ChangePasswordScreen} 
+              options={{ title: 'Change Password' }} 
+            />
           </>
         ) : (
           // Auth flow
