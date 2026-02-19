@@ -92,6 +92,28 @@ export const clearCart = async (): Promise<boolean> => {
   }
 };
 
+export interface ActiveTicket {
+  transaction_code: string;
+  items_count: number;
+  status: string;
+}
+
+/**
+ * Fetches the active checkout ticket from the API.
+ */
+export const fetchActiveTicket = async (): Promise<ActiveTicket | null> => {
+  try {
+    const response = await api.get<{ success: boolean; data: ActiveTicket }>('/api/checkout');
+    if (response.data && response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    return null;
+  } catch (error) {
+    console.warn('Failed to fetch active ticket:', error);
+    return null;
+  }
+};
+
 /**
  * Checks out selected items.
  */

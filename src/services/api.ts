@@ -39,3 +39,24 @@ api.interceptors.request.use(
 
 // I-export ang na-configure na 'api' instance para magamit sa ibang parts ng app.
 export default api;
+
+export interface DashboardData {
+  success: boolean;
+  data: {
+    active_ticket: {
+      transaction_code: string;
+      items_count: number;
+      expires_at: string;
+    } | null;
+    stats: {
+      borrowed_books: number;
+      days_visited: number;
+      overdue_books: number;
+    };
+  };
+}
+
+export const fetchDashboard = async (): Promise<DashboardData['data']> => {
+  const response = await api.get<DashboardData>('/api/dashboard');
+  return response.data.data;
+};
