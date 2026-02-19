@@ -25,7 +25,14 @@ const AppNavigator = () => {
               component={MainTabNavigator}
               options={{ headerShown: false }}
             />
-            <Stack.Screen name="Cart" component={CartScreen} />
+            <Stack.Screen 
+              name="Cart" 
+              component={CartScreen} 
+              options={{ 
+                title: 'My Cart',
+                headerBackTitleVisible: false,
+              }} 
+            />
             <Stack.Screen 
               name="Settings" 
               component={SettingsScreen} 
