@@ -257,9 +257,9 @@ const CartScreen = () => {
   );
 
   return (
-    <View className="flex-1 bg-[#FDFBF7]">
+    <View style={{ flex: 1 }} className="bg-[#FDFBF7]">
       <ScrollView 
-        className="flex-1"
+        style={{ flex: 1 }}
         contentContainerStyle={{ flexGrow: 1 }}
         showsVerticalScrollIndicator={true}
       >

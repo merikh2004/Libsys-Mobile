@@ -1,24 +1,23 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  ActivityIndicator,
-  Alert,
-  Platform,
-  RefreshControl,
-  KeyboardAvoidingView,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { 
-  fetchProfile, 
-  updateProfile, 
-  ProfileData 
-} from '../services/profile';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import { BASE_URL } from '../services/api';
+import {
+  fetchProfile,
+  ProfileData,
+  updateProfile
+} from '../services/profile';
 
 const SettingsScreen = () => {
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -148,16 +147,19 @@ const SettingsScreen = () => {
             <Ionicons name="person-outline" size={20} color="#334155" />
             <Text className="text-xl font-bold text-slate-800 ml-2">Basic Information</Text>
           </View>
+          
+          {/* ICON-ONLY EDIT BUTTON */}
           <TouchableOpacity 
             onPress={() => setIsEditing(!isEditing)}
-            className={`flex-row items-center px-4 py-2 rounded-xl border ${
+            className={`w-10 h-10 items-center justify-center rounded-xl border ${
               isEditing ? 'bg-red-50 border-red-100' : 'bg-orange-50 border-orange-100'
             }`}
           >
-            <Ionicons name={isEditing ? 'close-outline' : 'create-outline'} size={18} color={isEditing ? '#ef4444' : '#EA580C'} />
-            <Text className={`font-bold ml-1.5 ${isEditing ? 'text-red-500' : 'text-orange-600'}`}>
-              {isEditing ? 'Cancel' : 'Edit Profile'}
-            </Text>
+            <Ionicons 
+              name={isEditing ? 'close-outline' : 'create-outline'} 
+              size={20} 
+              color={isEditing ? '#ef4444' : '#EA580C'} 
+            />
           </TouchableOpacity>
         </View>
         {renderInput('Last Name', 'last_name')}
@@ -217,25 +219,39 @@ const SettingsScreen = () => {
     </View>
   );
 
+  const Content = (
+    <ScrollView 
+      style={{ flex: 1 }}
+      contentContainerStyle={{ flexGrow: 1 }}
+      showsVerticalScrollIndicator={true}
+      refreshControl={
+        Platform.OS !== 'web' ? (
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#EA580C']} />
+        ) : undefined
+      }
+    >
+      {MainContent}
+    </ScrollView>
+  );
+
   return (
-    <View className="flex-1 bg-[#f8fafc]">
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
-      >
-        <ScrollView 
-          className="flex-1"
-          contentContainerStyle={{ flexGrow: 1 }}
-          showsVerticalScrollIndicator={true}
-          refreshControl={
-            Platform.OS !== 'web' ? (
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#EA580C']} />
-            ) : undefined
-          }
+    <View 
+      style={{ 
+        flex: 1, 
+        backgroundColor: '#f8fafc',
+        height: Platform.OS === 'web' ? '100vh' : '100%' 
+      }}
+    >
+      {Platform.OS === 'web' ? (
+        Content
+      ) : (
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
         >
-          {MainContent}
-        </ScrollView>
-      </KeyboardAvoidingView>
+          {Content}
+        </KeyboardAvoidingView>
+      )}
     </View>
   );
 };

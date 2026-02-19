@@ -91,19 +91,19 @@ const ChangePasswordScreen = () => {
   );
 
   return (
-    <View className="flex-1 bg-[#F9FBFA]">
+    <View style={{ flex: 1 }} className="bg-[#F9FBFA]">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
+        style={{ flex: 1 }}
       >
         <ScrollView
-          className="flex-1"
+          style={{ flex: 1 }}
           contentContainerStyle={{
             padding: 20,
             paddingBottom: 40,
             flexGrow: 1,
           }}
-          showsVerticalScrollIndicator={false}
+          showsVerticalScrollIndicator={true}
         >
           {/* Main Title Header */}
           <View className="mb-6">
