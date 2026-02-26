@@ -1,21 +1,23 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  Dimensions,
+  Modal,
+  Pressable,
+  SafeAreaView,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-  Dimensions,
-  Animated,
-  Pressable,
-  StyleSheet,
-  SafeAreaView,
-  Modal,
+  View
 } from 'react-native';
 import Header from '../components/Header';
+import { useToast } from '../context/ToastContext';
 import { Book, fetchBooks } from '../services/books';
+import { addToCart } from '../services/cart';
 
 const { width, height } = Dimensions.get('window');
 const COLUMN_WIDTH = (width - 64) / 2; // Adjusted for gap
@@ -30,23 +32,23 @@ const InfoRow = ({ label, value, highlight = false }: { label: string; value: st
   </View>
 );
 
-const CustomDropdown = ({ 
-  value, 
-  options, 
-  isVisible, 
-  onToggle, 
-  onSelect, 
-  icon 
-}: { 
-  value: string; 
-  options: string[]; 
-  isVisible: boolean; 
-  onToggle: () => void; 
+const CustomDropdown = ({
+  value,
+  options,
+  isVisible,
+  onToggle,
+  onSelect,
+  icon
+}: {
+  value: string;
+  options: string[];
+  isVisible: boolean;
+  onToggle: () => void;
   onSelect: (val: string) => void;
   icon: any;
 }) => (
   <View className="mb-3 relative" style={{ zIndex: isVisible ? 1000 : 1 }}>
-    <TouchableOpacity 
+    <TouchableOpacity
       onPress={onToggle}
       className="flex-row items-center bg-orange-50 border border-orange-100 rounded-xl px-4 py-3"
     >
@@ -56,12 +58,12 @@ const CustomDropdown = ({
     </TouchableOpacity>
 
     {isVisible && (
-      <View 
+      <View
         className="absolute top-[52px] left-0 right-0 bg-white rounded-xl shadow-xl border border-slate-100 py-1 overflow-hidden"
         style={{ zIndex: 9999, elevation: 10 }}
       >
         {options.map((option) => (
-          <TouchableOpacity 
+          <TouchableOpacity
             key={option}
             className={`px-4 py-3 ${value === option ? 'bg-orange-100' : 'active:bg-slate-50'}`}
             onPress={() => {
@@ -81,6 +83,7 @@ const BooksScreen = () => {
   // State for data
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cartLoading, setCartLoading] = useState(false);
   const [totalBooks, setTotalBooks] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
@@ -100,22 +103,16 @@ const BooksScreen = () => {
   // State for dropdowns
   const [showOrderDropdown, setShowOrderDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const { showToast } = useToast();
 
-  const loadBooks = useCallback(async (isReset: boolean = false) => {
+  // Simplified loadBooks - no more side effects inside
+  const loadBooks = useCallback(async () => {
     setLoading(true);
     try {
-      // If it's a reset (search/status change), go to page 1. 
-      // Otherwise (order change or manual page change), use the current page state.
-      const targetPage = isReset ? 1 : page;
-      
-      const result = await fetchBooks(targetPage, LIMIT, search, orderBy, status);
+      const result = await fetchBooks(page, LIMIT, search, orderBy, status);
       setBooks(result.books || []);
       setTotalBooks(result.total || 0);
       setTotalPages(result.lastPage || 0);
-      
-      if (isReset) {
-        setPage(1);
-      }
     } catch (err) {
       console.error('Error in loadBooks:', err);
     } finally {
@@ -123,20 +120,29 @@ const BooksScreen = () => {
     }
   }, [page, search, orderBy, status]);
 
-  // Handle page change specifically
+    const handleAddToCart = async () => {
+      if (!selectedBook) return;
+      
+      setCartLoading(true);
+      const result = await addToCart(selectedBook);
+      setCartLoading(false);
+  
+              if (result.success) {
+                const isWarning = result.message?.toLowerCase().includes('already') || 
+                                  result.message?.toLowerCase().includes('exist') ||
+                                  result.message?.toLowerCase().includes('limit');
+                
+                showToast(
+                  result.message || `"${selectedBook.title}" added to cart!`, 
+                  isWarning ? 'warning' : 'success'
+                );
+                toggleModal(false);
+              } else {        showToast(result.message || 'Failed to add book to cart.', 'error');
+      }
+    };
   useEffect(() => {
-    loadBooks(false);
-  }, [page]);
-
-  // Handle search or status change (reset to page 1)
-  useEffect(() => {
-    loadBooks(true);
-  }, [search, status]);
-
-  // Handle order change (stay on current page)
-  useEffect(() => {
-    loadBooks(false);
-  }, [orderBy]);
+    loadBooks();
+  }, [page, search, orderBy, status]);
 
   const toggleModal = (show: boolean, book?: Book) => {
     if (show) {
@@ -176,10 +182,10 @@ const BooksScreen = () => {
 
   const renderBookCard = (item: Book, index: number) => {
     if (!item) return null;
-    
+
     const statusValue = (item.availability || '').trim().toLowerCase();
     const isAvailable = statusValue === 'available';
-    
+
     return (
       <TouchableOpacity
         key={item.id || item.accession_number || index}
@@ -189,7 +195,7 @@ const BooksScreen = () => {
       >
         <View className="h-40 bg-slate-50 items-center justify-center p-4">
           <Ionicons name="book-outline" size={60} color="#cbd5e1" />
-          <View 
+          <View
             className={`absolute top-2 left-2 px-2 py-1 rounded-md ${isAvailable ? 'bg-green-500' : 'bg-red-500'}`}
           >
             <Text className="text-white text-[10px] font-bold">
@@ -197,7 +203,7 @@ const BooksScreen = () => {
             </Text>
           </View>
         </View>
-        
+
         <View className="p-3">
           <Text className="text-slate-900 font-bold text-sm mb-1" numberOfLines={2}>
             {item.title}
@@ -220,11 +226,11 @@ const BooksScreen = () => {
       const pages = [];
       let startPage = Math.max(1, page - 1);
       let endPage = Math.min(totalPages, startPage + 2);
-      
+
       if (endPage - startPage < 2 && totalPages >= 3) {
         startPage = Math.max(1, endPage - 2);
       }
-      
+
       for (let i = startPage; i <= endPage; i++) {
         pages.push(i);
       }
@@ -236,7 +242,7 @@ const BooksScreen = () => {
     return (
       <View className="flex-row justify-center items-center py-6 px-4 mb-10">
         <View className="bg-white rounded-full flex-row items-center px-6 py-3 shadow-sm border border-slate-100">
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1}
             className="flex-row items-center mr-4"
@@ -247,7 +253,7 @@ const BooksScreen = () => {
 
           <View className="flex-row items-center space-x-2">
             {pageNumbers.map((pageNum) => (
-              <TouchableOpacity 
+              <TouchableOpacity
                 key={pageNum}
                 onPress={() => setPage(pageNum)}
                 style={[
@@ -262,7 +268,7 @@ const BooksScreen = () => {
             ))}
           </View>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => setPage(p => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
             className="flex-row items-center ml-4"
@@ -278,9 +284,9 @@ const BooksScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <Header />
-      
-      <ScrollView 
-        className="flex-1 bg-slate-50" 
+
+      <ScrollView
+        className="flex-1 bg-slate-50"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ flexGrow: 1 }}
       >
@@ -294,7 +300,7 @@ const BooksScreen = () => {
               <Ionicons name="search-outline" size={20} color="#f97316" />
               <Text className="text-slate-800 font-bold text-lg ml-3">Search & Discover</Text>
             </View>
-            
+
             <Text className="text-slate-500 text-sm mb-4">Find exactly what you're looking for with our advanced search tools</Text>
 
             <View className="flex-row items-center bg-orange-50 border border-orange-100 rounded-xl px-4 py-3 mb-3">
@@ -302,13 +308,16 @@ const BooksScreen = () => {
               <TextInput
                 placeholder="Search"
                 value={search}
-                onChangeText={setSearch}
+                onChangeText={(text) => {
+                  setSearch(text);
+                  setPage(1);
+                }}
                 className="flex-1 ml-3 text-slate-700"
                 placeholderTextColor="#94a3b8"
               />
             </View>
 
-            <CustomDropdown 
+            <CustomDropdown
               value={orderBy}
               options={['Default Order', 'Title (A-Z)', 'Title (Z-A)', 'Year (Oldest)', 'Year (Newest)']}
               isVisible={showOrderDropdown}
@@ -320,7 +329,7 @@ const BooksScreen = () => {
               icon="swap-vertical-outline"
             />
 
-            <CustomDropdown 
+            <CustomDropdown
               value={status}
               options={['All Status', 'Available', 'Borrowed']}
               isVisible={showStatusDropdown}
@@ -328,7 +337,10 @@ const BooksScreen = () => {
                 setShowStatusDropdown(!showStatusDropdown);
                 setShowOrderDropdown(false);
               }}
-              onSelect={setStatus}
+              onSelect={(val) => {
+                setStatus(val);
+                setPage(1);
+              }}
               icon="checkmark-circle-outline"
             />
           </View>
@@ -378,20 +390,20 @@ const BooksScreen = () => {
             <Pressable style={{ flex: 1 }} onPress={() => toggleModal(false)} />
           </Animated.View>
 
-          <Animated.View 
+          <Animated.View
             style={[
               styles.modalContent,
               { transform: [{ translateY: slideAnim }] }
             ]}
           >
             <View className="bg-orange-500 p-8 pt-10 relative">
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => toggleModal(false)}
                 className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/20 items-center justify-center"
               >
                 <Ionicons name="close" size={24} color="white" />
               </TouchableOpacity>
-              
+
               <Text className="text-white font-bold text-2xl mb-2 pr-10">
                 {selectedBook?.title}
               </Text>
@@ -416,7 +428,7 @@ const BooksScreen = () => {
 
               <View className="bg-white border border-slate-100 rounded-3xl p-6 mb-8 shadow-sm">
                 <Text className="text-slate-900 font-bold text-lg mb-5">Book Information</Text>
-                
+
                 <View className="space-y-3">
                   <InfoRow label="Accession Number" value={selectedBook?.accession_number} highlight />
                   <InfoRow label="ISBN" value={selectedBook?.book_isbn} />
@@ -432,20 +444,27 @@ const BooksScreen = () => {
               <View className="bg-orange-50/30 border border-orange-100/50 rounded-3xl p-6 mb-32">
                 <Text className="text-orange-900 font-bold text-lg mb-3">Description</Text>
                 <Text className="text-slate-600 text-sm leading-6">
-                  {selectedBook?.description === 'NA' || !selectedBook?.description 
-                    ? 'No description available for this book.' 
+                  {selectedBook?.description === 'NA' || !selectedBook?.description
+                    ? 'No description available for this book.'
                     : selectedBook?.description}
                 </Text>
               </View>
             </ScrollView>
 
             <View className="absolute bottom-0 left-0 right-0 p-8 bg-white border-t border-slate-50">
-              <TouchableOpacity 
-                disabled={(selectedBook?.availability || '').trim().toLowerCase() !== 'available'}
+              <TouchableOpacity
+                onPress={handleAddToCart}
+                disabled={cartLoading || (selectedBook?.availability || '').trim().toLowerCase() !== 'available'}
                 className={`${(selectedBook?.availability || '').trim().toLowerCase() === 'available' ? 'bg-emerald-500 shadow-emerald-500/30' : 'bg-slate-300'} rounded-2xl py-5 flex-row items-center justify-center shadow-lg`}
               >
-                <Ionicons name="cart-outline" size={24} color="white" />
-                <Text className="text-white font-bold text-lg ml-3">Add to Cart</Text>
+                {cartLoading ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <>
+                    <Ionicons name="cart-outline" size={24} color="white" />
+                    <Text className="text-white font-bold text-lg ml-3">Add to Cart</Text>
+                  </>
+                )}
               </TouchableOpacity>
             </View>
           </Animated.View>

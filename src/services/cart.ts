@@ -118,6 +118,41 @@ export const fetchActiveTicket = async (): Promise<ActiveTicket | null> => {
 };
 
 /**
+ * Adds a book to the cart.
+ */
+export const addToCart = async (book: any): Promise<{ success: boolean; message?: string }> => {
+  try {
+    // Get the ID from either 'id' or 'book_id' field
+    const bookId = book.id || book.book_id;
+    
+    if (!bookId) {
+      return { success: false, message: 'Invalid Book ID' };
+    }
+
+    console.log('Adding to cart, Book ID:', bookId);
+    
+    const response = await api.post('/api/cart/add', { 
+      book_id: bookId 
+    });
+    
+    // If API returns success: false explicitly, it's a failure. 
+    // Otherwise, as long as it didn't throw an error, treat it as success.
+    const isSuccess = response.data && response.data.success !== false;
+    
+    return {
+      success: isSuccess,
+      message: response.data && response.data.message
+    };
+  } catch (error: any) {
+    console.error('Failed to add item to cart:', error.response?.data || error.message);
+    return {
+      success: false,
+      message: error.response?.data?.message || 'Failed to add item to cart'
+    };
+  }
+};
+
+/**
  * Checks out selected items.
  */
 export const checkout = async (cartItemIds: number[]): Promise<boolean> => {
