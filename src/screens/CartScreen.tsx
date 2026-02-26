@@ -183,6 +183,7 @@ const CartScreen = () => {
             <View className="bg-white rounded-[24px] p-10 items-center border border-orange-100 shadow-sm justify-center min-h-[300px]">
               <Ionicons name="cart-outline" size={80} color="#9A3412" />
               <Text className="text-xl font-bold text-[#374151] mt-4">Empty Cart</Text>
+              <Text className='text-slate-500 mt-2'>Your cart is currently empty.</Text>
             </View>
           ) : (
             <>
