@@ -1,12 +1,12 @@
+import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import React from 'react';
-import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext'; // 1. I-import ang useAuth hook
 
 // Import all the screens for the tabs
-import DashboardScreen from '../screens/DashboardScreen';
 import AttendanceScreen from '../screens/AttendanceScreen';
 import BooksScreen from '../screens/BooksScreen';
+import DashboardScreen from '../screens/DashboardScreen';
 import HistoryScreen from '../screens/HistoryScreen';
 import QRScreen from '../screens/QRScreen';
 
@@ -54,15 +54,11 @@ const MainTabNavigator = () => {
           backgroundColor: 'white',
           borderTopWidth: 1,
           borderTopColor: '#e2e8f0',
+          height: 55,
         },
       })}
     >
       <Tab.Screen name="Home" component={DashboardScreen} />
-      
-      {/* 
-        3. CONDITIONAL RENDERING: 
-        Ipakita lang ang Attendance tab kung ang user ay student.
-      */}
       {isStudent && (
         <Tab.Screen name="Attendance" component={AttendanceScreen} />
       )}
