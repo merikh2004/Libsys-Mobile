@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context'; // FIX: Idinagdag ang SafeAreaView
 
 const ChangePasswordScreen = () => {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -91,19 +92,21 @@ const ChangePasswordScreen = () => {
   );
 
   return (
-    <View style={{ flex: 1 }} className="bg-[#F9FBFA]">
+    // FIX: Binalot sa SafeAreaView para consistent
+    <SafeAreaView style={{ flex: 1 }} className="bg-[#F9FBFA]" edges={['bottom', 'left', 'right']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
+        enabled={Platform.OS !== 'web'} // FIX: I-disable ang KeyboardAvoidingView sa Web para iwas scroll lock
       >
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{
             padding: 20,
-            paddingBottom: 40,
+            paddingBottom: 100, // FIX: Dinagdagan ang padding bottom para hindi matakpan
             flexGrow: 1,
           }}
-          showsVerticalScrollIndicator={true}
+          showsVerticalScrollIndicator={false}
         >
           {/* Main Title Header */}
           <View className="mb-6">
@@ -219,7 +222,7 @@ const ChangePasswordScreen = () => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </SafeAreaView>
   );
 };
 

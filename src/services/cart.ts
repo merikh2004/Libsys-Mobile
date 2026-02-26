@@ -56,8 +56,11 @@ const MOCK_CART: CartItem[] = [
 export const fetchCartItems = async (): Promise<CartItem[]> => {
   try {
     const response = await api.get<CartResponse>('/api/cart');
+    console.log('Cart API Response:', JSON.stringify(response.data, null, 2));
+    
     if (response.data && response.data.success) {
-      return response.data.data;
+      // Ensure we return an array
+      return Array.isArray(response.data.data) ? response.data.data : [];
     }
     throw new Error('API response unsuccessful');
   } catch (error) {
@@ -72,10 +75,10 @@ export const fetchCartItems = async (): Promise<CartItem[]> => {
 export const removeFromCart = async (cartItemId: number): Promise<boolean> => {
   try {
     const response = await api.delete(`/api/cart/${cartItemId}`);
-    return response.data.success;
+    return response.data && response.data.success;
   } catch (error) {
     console.error('Failed to remove item from cart:', error);
-    return true; // Return true for mock functionality
+    return false;
   }
 };
 
@@ -85,10 +88,10 @@ export const removeFromCart = async (cartItemId: number): Promise<boolean> => {
 export const clearCart = async (): Promise<boolean> => {
   try {
     const response = await api.delete('/api/cart');
-    return response.data.success;
+    return response.data && response.data.success;
   } catch (error) {
     console.error('Failed to clear cart:', error);
-    return true; // Return true for mock functionality
+    return false;
   }
 };
 
@@ -123,6 +126,6 @@ export const checkout = async (cartItemIds: number[]): Promise<boolean> => {
     return response.data.success;
   } catch (error) {
     console.error('Failed to checkout:', error);
-    return true; // Return true for mock functionality
+    return false;
   }
 };
