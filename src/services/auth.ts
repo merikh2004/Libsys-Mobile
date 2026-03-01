@@ -25,6 +25,17 @@ interface LoginResult {
   error?: string; // Error message sa Tagalog
 }
 
+export interface ChangePasswordData {
+  current_password: string;
+  new_password: string;
+  new_password_confirmation: string;
+}
+
+export interface ChangePasswordResponse {
+  success: boolean;
+  message: string;
+}
+
 /**
  * Handles user login by calling the API.
  * @param credentials Ang username/identifier at password ng user.
@@ -78,6 +89,37 @@ export const loginUser = async (
     return {
       success: false,
       error: 'Could not connect to the server. Please check your internet connection.',
+    };
+  }
+};
+
+/**
+ * Handles password change by calling the API.
+ * @param data Ang current password, new password, at confirmation ng user.
+ * @returns Isang object na nagsasabing success ba o hindi, kasama ang message mula sa API.
+ */
+export const changePassword = async (
+  data: ChangePasswordData,
+): Promise<ChangePasswordResponse> => {
+  try {
+    const response = await api.post<ChangePasswordResponse>(
+      '/api/changePassword',
+      data,
+    );
+    return response.data;
+  } catch (error) {
+    if (isAxiosError(error)) {
+      return {
+        success: false,
+        message:
+          error.response?.data?.message ||
+          'Failed to change password. Please try again.',
+      };
+    }
+    return {
+      success: false,
+      message:
+        'Could not connect to the server. Please check your internet connection.',
     };
   }
 };

@@ -11,6 +11,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context'; // FIX: Idinagdag ang SafeAreaView
+import { useToast } from '../context/ToastContext';
+import { changePassword } from '../services/auth';
 
 const ChangePasswordScreen = () => {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -25,35 +27,58 @@ const ChangePasswordScreen = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleChangePassword = () => {
+  const { showToast } = useToast();
+
+  const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       setError('Please fill in all fields.');
+      showToast('Please fill in all fields.', 'error');
       setSuccess(null);
       return;
     }
 
     if (newPassword !== confirmPassword) {
       setError('New passwords do not match.');
+      showToast('New passwords do not match.', 'error');
       setSuccess(null);
       return;
     }
 
     if (newPassword.length < 6) {
       setError('Password must be at least 6 characters long.');
+      showToast('Password must be at least 6 characters long.', 'error');
       setSuccess(null);
       return;
     }
 
     setError(null);
+    setSuccess(null);
     setIsLoading(true);
     
-    setTimeout(() => {
+    try {
+      const result = await changePassword({
+        current_password: currentPassword,
+        new_password: newPassword,
+        new_password_confirmation: confirmPassword,
+      });
+
+      if (result.success) {
+        showToast(result.message || 'Password updated successfully!', 'success');
+        setSuccess(result.message || 'Password updated successfully!');
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        showToast(result.message || 'Failed to update password.', 'error');
+        setError(result.message || 'Failed to update password.');
+      }
+    } catch (err) {
+      console.error('Error changing password:', err);
+      showToast('An unexpected error occurred.', 'error');
+      setError('An unexpected error occurred.');
+    } finally {
       setIsLoading(false);
-      setSuccess('Password updated successfully!');
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-    }, 1500);
+    }
   };
 
   const renderPasswordField = (
@@ -75,11 +100,14 @@ const ChangePasswordScreen = () => {
           secureTextEntry={!show}
           value={value}
           onChangeText={onChange}
-          className="w-full bg-orange-50/30 px-4 py-3 rounded-lg border border-orange-200 text-orange-600 text-sm pr-12"
+          className="w-full bg-orange-50/30 px-4 py-3 rounded-lg border border-orange-200 focus:border-orange-500 text-orange-600 text-sm pr-12"
         />
         <TouchableOpacity
           className="absolute right-0 top-0 h-full w-12 items-center justify-center"
           onPress={() => setShow(!show)}
+          focusable={false}
+          // @ts-ignore
+          tabIndex={-1}
         >
           <Ionicons
             name={show ? 'eye-off-outline' : 'eye-outline'}
