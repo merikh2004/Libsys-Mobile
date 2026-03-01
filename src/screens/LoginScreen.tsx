@@ -77,7 +77,7 @@ const LoginScreen = () => {
           showsVerticalScrollIndicator={false}
           className="w-full"
         >
-          <View className="w-full p-6 shadow-xl shadow-slate-200/50">
+          <View className="w-full p-6 max-w-md">
             {/* Logo at Title */}
             <View className="items-center mb-8">
               <View className="w-16 h-16 items-center justify-center mb-8">
