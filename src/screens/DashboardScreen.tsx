@@ -3,8 +3,8 @@ import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Header from '../components/Header';
-import { fetchDashboard, DashboardBook } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { DashboardBook, fetchDashboard } from '../services/api';
 
 const StatCard = ({ 
   title, 
@@ -136,7 +136,7 @@ const DashboardScreen = () => {
     <View className="flex-1 bg-slate-50">
       <Header />
       <ScrollView 
-        className="flex-1 px-3 pt-4"
+        className="flex-1 px-2 pt-4"
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#f97316" />

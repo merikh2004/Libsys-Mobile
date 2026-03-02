@@ -1,19 +1,24 @@
 import api from './api';
 
 export interface ProfileData {
-  id: number;
-  last_name: string;
+  username: string;
   first_name: string;
   middle_name: string | null;
+  last_name: string;
   suffix: string | null;
-  student_number: string;
-  course: string;
-  year: number;
-  section: string;
   email: string;
-  contact: string;
   profile_picture: string | null;
+  student_number: string;
+  course_id: number;
+  year_level: number;
+  section: string;
+  contact: string;
   registration_form: string | null;
+  can_edit_profile: number;
+  course_code: string;
+  course_title: string;
+  course_full_name: string;
+  is_qualified: boolean;
 }
 
 export interface ProfileResponse {

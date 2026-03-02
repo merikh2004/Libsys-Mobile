@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -12,20 +12,27 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { useToast } from '../context/ToastContext';
 import { BASE_URL } from '../services/api';
 import {
   fetchProfile,
   ProfileData,
-  updateProfile
+  updateProfile,
+  uploadProfilePicture,
+  uploadRegistrationForm
 } from '../services/profile';
 
 const SettingsScreen = () => {
+  const { showToast } = useToast();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState<Partial<ProfileData>>({});
+  
+  const profileImageInputRef = useRef<any>(null);
+  const regFormInputRef = useRef<any>(null);
 
   const loadProfile = async () => {
     try {
@@ -36,6 +43,7 @@ const SettingsScreen = () => {
       }
     } catch (error) {
       console.error('Failed to load profile:', error);
+      showToast('Failed to load profile', 'error');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -52,18 +60,71 @@ const SettingsScreen = () => {
   }, []);
 
   const handleUpdateProfile = async () => {
+    // Basic validation
+    const requiredFields: (keyof ProfileData)[] = ['first_name', 'last_name', 'email', 'contact', 'section'];
+    const missingFields = requiredFields.filter(field => !formData[field]);
+
+    if (missingFields.length > 0) {
+      const fieldLabels = missingFields.map(f => f.replace('_', ' ').toUpperCase());
+      showToast(`Required fields: ${fieldLabels.join(', ')}`, 'warning');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const response = await updateProfile(formData);
       if (response.success) {
         setProfile(response.data);
         setIsEditing(false);
-        if (Platform.OS === 'web') alert('Profile updated successfully.');
+        showToast('Profile updated successfully', 'success');
       }
     } catch (error) {
       console.error('Failed to update profile:', error);
+      showToast('Failed to update profile', 'error');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleFileChange = async (event: any, type: 'picture' | 'document') => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const data = new FormData();
+    data.append(type === 'picture' ? 'profile_picture' : 'registration_form', file);
+
+    setSubmitting(true);
+    try {
+      let response;
+      if (type === 'picture') {
+        response = await uploadProfilePicture(data);
+      } else {
+        response = await uploadRegistrationForm(data);
+      }
+
+      if (response.success) {
+        setProfile(response.data);
+        setFormData(response.data);
+        showToast(`${type === 'picture' ? 'Profile picture' : 'Registration form'} uploaded successfully`, 'success');
+      }
+    } catch (error) {
+      console.error(`Failed to upload ${type}:`, error);
+      showToast(`Failed to upload ${type}`, 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const triggerFileUpload = (type: 'picture' | 'document') => {
+    if (Platform.OS !== 'web') {
+      showToast('File upload is only supported on web for now', 'info');
+      return;
+    }
+    
+    if (type === 'picture') {
+      profileImageInputRef.current?.click();
+    } else {
+      regFormInputRef.current?.click();
     }
   };
 
@@ -73,9 +134,12 @@ const SettingsScreen = () => {
     return `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
   };
 
-  const renderInput = (label: string, field: keyof ProfileData, keyboardType: any = 'default') => (
+  const renderInput = (label: string, field: keyof ProfileData, keyboardType: any = 'default', isRequired = false) => (
     <View className="mb-4">
-      <Text className="text-slate-500 font-medium mb-1.5 ml-1">{label}</Text>
+      <View className="flex-row items-center mb-1.5 ml-1">
+        <Text className="text-slate-500 font-medium">{label}</Text>
+        {isRequired && <Text className="text-red-500 ml-1">*</Text>}
+      </View>
       <TextInput
         className={`w-full px-4 py-3 rounded-xl border ${
           isEditing ? 'bg-white border-orange-100 text-slate-900' : 'bg-slate-50 border-slate-100 text-slate-500'
@@ -99,6 +163,26 @@ const SettingsScreen = () => {
 
   const MainContent = (
     <View className="p-6">
+      {/* Hidden inputs for web file upload */}
+      {Platform.OS === 'web' && (
+        <>
+          <input
+            type="file"
+            ref={profileImageInputRef}
+            style={{ display: 'none' }}
+            accept="image/*"
+            onChange={(e) => handleFileChange(e, 'picture')}
+          />
+          <input
+            type="file"
+            ref={regFormInputRef}
+            style={{ display: 'none' }}
+            accept=".pdf"
+            onChange={(e) => handleFileChange(e, 'document')}
+          />
+        </>
+      )}
+
       {/* My Profile Header */}
       <View className="mb-8">
         <Text className="text-3xl font-bold text-slate-900 mb-2">My Profile</Text>
@@ -123,8 +207,9 @@ const SettingsScreen = () => {
               <Ionicons name="person" size={64} color="white" />
             )}
           </View>
-          {isEditing && (
+          {profile?.can_edit_profile === 1 && (
             <TouchableOpacity 
+              onPress={() => triggerFileUpload('picture')}
               className="absolute bottom-0 right-0 bg-orange-500 w-10 h-10 rounded-full items-center justify-center border-2 border-white shadow-sm"
             >
               <Ionicons name="camera" size={20} color="white" />
@@ -149,21 +234,23 @@ const SettingsScreen = () => {
           </View>
           
           {/* ICON-ONLY EDIT BUTTON */}
-          <TouchableOpacity 
-            onPress={() => setIsEditing(!isEditing)}
-            className={`w-10 h-10 items-center justify-center rounded-xl border ${
-              isEditing ? 'bg-red-50 border-red-100' : 'bg-orange-50 border-orange-100'
-            }`}
-          >
-            <Ionicons 
-              name={isEditing ? 'close-outline' : 'create-outline'} 
-              size={20} 
-              color={isEditing ? '#ef4444' : '#EA580C'} 
-            />
-          </TouchableOpacity>
+          {profile?.can_edit_profile === 1 && (
+            <TouchableOpacity 
+              onPress={() => setIsEditing(!isEditing)}
+              className={`w-10 h-10 items-center justify-center rounded-xl border ${
+                isEditing ? 'bg-red-50 border-red-100' : 'bg-orange-50 border-orange-100'
+              }`}
+            >
+              <Ionicons 
+                name={isEditing ? 'close-outline' : 'create-outline'} 
+                size={20} 
+                color={isEditing ? '#ef4444' : '#EA580C'} 
+              />
+            </TouchableOpacity>
+          )}
         </View>
-        {renderInput('Last Name', 'last_name')}
-        {renderInput('First Name', 'first_name')}
+        {renderInput('Last Name', 'last_name', 'default', true)}
+        {renderInput('First Name', 'first_name', 'default', true)}
         {renderInput('Middle Name', 'middle_name')}
         {renderInput('Suffix', 'suffix')}
       </View>
@@ -180,13 +267,13 @@ const SettingsScreen = () => {
             <Text className="text-slate-500">{profile?.student_number}</Text>
           </View>
         </View>
-        {renderInput('Course', 'course')}
+        {renderInput('Course', 'course_full_name')}
         <View className="flex-row space-x-4">
-          <View style={{ flex: 1 }}>{renderInput('Year', 'year', 'numeric')}</View>
-          <View style={{ flex: 1 }}>{renderInput('Section', 'section')}</View>
+          <View style={{ flex: 1 }}>{renderInput('Year', 'year_level', 'numeric', true)}</View>
+          <View style={{ flex: 1 }}>{renderInput('Section', 'section', 'default', true)}</View>
         </View>
-        {renderInput('Email', 'email', 'email-address')}
-        {renderInput('Contact', 'contact', 'phone-pad')}
+        {renderInput('Email', 'email', 'email-address', true)}
+        {renderInput('Contact', 'contact', 'phone-pad', true)}
       </View>
 
       {/* Registration Docs */}
@@ -195,15 +282,24 @@ const SettingsScreen = () => {
           <Ionicons name="folder-outline" size={20} color="#334155" />
           <Text className="text-xl font-bold text-slate-800 ml-2">Registration Documents</Text>
         </View>
-        <View className="rounded-2xl p-6 border-2 border-dashed border-slate-100 bg-slate-50 flex-row items-center">
+        <TouchableOpacity 
+          onPress={() => triggerFileUpload('document')}
+          disabled={profile?.can_edit_profile !== 1}
+          className="rounded-2xl p-6 border-2 border-dashed border-slate-100 bg-slate-50 flex-row items-center"
+        >
           <View className="bg-white w-12 h-12 rounded-xl items-center justify-center border border-slate-100">
             <Ionicons name="document-text" size={24} color="#3b82f6" />
           </View>
           <View className="ml-4 flex-1">
             <Text className="text-slate-900 font-bold text-base">Registration Form</Text>
-            <Text className="text-slate-500 text-xs mt-1">Upload PDF only.</Text>
+            <Text className="text-slate-500 text-xs mt-1">
+              {profile?.registration_form ? profile.registration_form.split('/').pop() : 'No file uploaded. Upload PDF only.'}
+            </Text>
           </View>
-        </View>
+          {profile?.can_edit_profile === 1 && (
+            <Ionicons name="cloud-upload-outline" size={20} color="#EA580C" />
+          )}
+        </TouchableOpacity>
       </View>
 
       {/* Save Button */}
