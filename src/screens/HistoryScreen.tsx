@@ -15,6 +15,63 @@ import {
   HistorySummary,
 } from '../services/history';
 
+const StatusBadge = ({ status }: { status: string }) => {
+  let bgColor = 'bg-slate-100';
+  let textColor = 'text-slate-600';
+
+  if (status === 'Borrowed') {
+    bgColor = 'bg-orange-100';
+    textColor = 'text-orange-600';
+  } else if (status === 'Returned') {
+    bgColor = 'bg-green-100';
+    textColor = 'text-green-600';
+  } else if (status === 'Overdue') {
+    bgColor = 'bg-red-100';
+    textColor = 'text-red-600';
+  }
+
+  return (
+    <View className={`${bgColor} px-3 py-1 rounded-full`}>
+      <Text className={`${textColor} text-[10px] font-bold uppercase`}>{status}</Text>
+    </View>
+  );
+};
+
+const RecordCard = ({ record }: { record: BorrowingRecord }) => (
+  <View className="bg-white border border-slate-100 rounded-xl p-4 mb-4 shadow-sm">
+    <View className="flex-row justify-between items-start mb-3">
+      <View className="flex-1 mr-2">
+        <Text className="text-slate-900 font-bold text-base mb-1">{record.book_title}</Text>
+        <Text className="text-slate-500 text-xs">by {record.book_author || 'N/A'}</Text>
+      </View>
+      <StatusBadge status={record.status} />
+    </View>
+
+    <View className="border-t border-slate-50 pt-3 flex-row justify-between">
+      <View>
+        <Text className="text-slate-400 text-[10px] uppercase font-semibold mb-1">Borrowed Date</Text>
+        <Text className="text-slate-700 text-xs">
+          {new Date(record.borrow_date).toLocaleDateString()}
+        </Text>
+      </View>
+      <View>
+        <Text className="text-slate-400 text-[10px] uppercase font-semibold mb-1">Due Date</Text>
+        <Text className="text-slate-700 text-xs">
+          {new Date(record.due_date).toLocaleDateString()}
+        </Text>
+      </View>
+      {record.return_date && (
+        <View>
+          <Text className="text-slate-400 text-[10px] uppercase font-semibold mb-1">Returned Date</Text>
+          <Text className="text-slate-700 text-xs">
+            {new Date(record.return_date).toLocaleDateString()}
+          </Text>
+        </View>
+      )}
+    </View>
+  </View>
+);
+
 const HistoryScreen = () => {
   const [summary, setSummary] = useState<HistorySummary>({
     total_borrowed: 0,
@@ -89,7 +146,7 @@ const HistoryScreen = () => {
         }
       >
         {/* Page Title Section */}
-        <View className="mb-8">
+        <View className="mb-8 px-3">
           <Text className="text-3xl font-bold text-slate-900 mb-2">My Borrowing History</Text>
           <Text className="text-slate-500 text-base">
             Complete record of your library borrowing activity with detailed information.
@@ -101,7 +158,7 @@ const HistoryScreen = () => {
             <ActivityIndicator size="large" color="#EA580C" />
           </View>
         ) : (
-          <>
+          <View className="px-3">
             {/* Summary Cards Vertical List */}
             <View className="mb-8">
               <SummaryCard
@@ -143,14 +200,14 @@ const HistoryScreen = () => {
             </View>
 
             {/* Borrowing Records Section */}
-            <View className="bg-white rounded-2xl p-6 mb-10 shadow-sm border border-slate-100">
+            <View className="mb-10">
               <Text className="text-xl font-bold text-slate-900 mb-1">Borrowing Records</Text>
               <Text className="text-slate-500 text-sm mb-6">
                 Complete history of your book borrowings
               </Text>
 
               {records.length === 0 ? (
-                <View className="py-10 items-center justify-center border-t border-slate-50 pt-10">
+                <View className="bg-white rounded-2xl py-10 items-center justify-center border border-slate-100 shadow-sm">
                   <Ionicons name="calendar-outline" size={48} color="#94a3b8" />
                   <Text className="text-slate-500 mt-4 text-center font-medium text-base">
                     No borrowing records found.
@@ -158,11 +215,13 @@ const HistoryScreen = () => {
                 </View>
               ) : (
                 <View>
-                  <Text className="text-slate-400 text-center italic py-10">Record list placeholder</Text>
+                  {records.map((record) => (
+                    <RecordCard key={record.id} record={record} />
+                  ))}
                 </View>
               )}
             </View>
-          </>
+          </View>
         )}
       </ScrollView>
     </View>

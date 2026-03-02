@@ -40,23 +40,44 @@ api.interceptors.request.use(
 // I-export ang na-configure na 'api' instance para magamit sa ibang parts ng app.
 export default api;
 
+export interface DashboardBook {
+  title: string;
+  author: string;
+  due_date: string;
+  status: string;
+  accession_number: string;
+}
+
 export interface DashboardData {
   success: boolean;
   data: {
-    active_ticket: {
-      transaction_code: string;
-      items_count: number;
-      expires_at: string;
-    } | null;
-    stats: {
-      borrowed_books: number;
+    summary: {
+      books_borrowed: number;
       days_visited: number;
       overdue_books: number;
     };
+    currently_borrowed_books: DashboardBook[];
+    role_label: string;
   };
 }
 
 export const fetchDashboard = async (): Promise<DashboardData['data']> => {
-  const response = await api.get<DashboardData>('/api/dashboard');
-  return response.data.data;
+  try {
+    const response = await api.get<DashboardData>('/api/dashboard');
+    if (response.data && response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error('Failed to fetch dashboard data');
+  } catch (error) {
+    console.warn('Using fallback dashboard data:', error);
+    return {
+      summary: {
+        books_borrowed: 0,
+        days_visited: 0,
+        overdue_books: 0,
+      },
+      currently_borrowed_books: [],
+      role_label: 'Dashboard',
+    };
+  }
 };
