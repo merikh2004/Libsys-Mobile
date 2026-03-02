@@ -76,18 +76,18 @@ const QRScreen = () => {
     <View className="flex-1 bg-slate-50">
       <Header />
       <ScrollView 
-        className="flex-1 px-6 pt-6"
+        className="flex-1 px-6 pt-7"
         showsVerticalScrollIndicator={false}
       >
         <View className="mb-6">
-          <Text className="text-2xl font-bold text-[#3E2723] mb-1">QR Borrowing Ticket</Text>
+          <Text className="text-3xl font-bold text-[#3E2723] mb-1">QR Borrowing Ticket</Text>
           <Text className="text-slate-500 text-sm">
             Your QR code for book borrowing and library access.
           </Text>
         </View>
 
         {/* Your QR Ticket Card */}
-        <View className="bg-white rounded-2xl p-6 mb-6 shadow-sm border border-slate-100 items-center">
+        <View className="bg-white rounded-3xl p-6 mb-6 shadow-sm border border-slate-100 items-center">
           <Text className="text-[#3E2723] font-bold text-lg mb-1">Your QR Ticket</Text>
           <Text className="text-slate-500 text-sm mb-6 text-center">Present this to the librarian</Text>
 

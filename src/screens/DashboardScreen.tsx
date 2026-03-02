@@ -3,7 +3,8 @@ import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Header from '../components/Header';
-import { DashboardBook, fetchDashboard } from '../services/api';
+import { fetchDashboard, DashboardBook } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const StatCard = ({ 
   title, 
@@ -83,6 +84,7 @@ const BorrowedBookCard = ({ book }: { book: DashboardBook }) => (
 
 const DashboardScreen = () => {
   const navigation = useNavigation<any>();
+  const { user } = useAuth();
   const [summary, setSummary] = useState({
     books_borrowed: 0,
     days_visited: 0,
@@ -92,6 +94,9 @@ const DashboardScreen = () => {
   const [roleLabel, setRoleLabel] = useState('Dashboard');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Check if user is staff or faculty
+  const isStaffOrFaculty = user?.role?.toLowerCase() === 'staff' || user?.role?.toLowerCase() === 'faculty';
 
   const loadData = useCallback(async () => {
     try {
@@ -131,7 +136,7 @@ const DashboardScreen = () => {
     <View className="flex-1 bg-slate-50">
       <Header />
       <ScrollView 
-        className="flex-1 px-2 pt-4"
+        className="flex-1 px-3 pt-4"
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#f97316" />
@@ -159,14 +164,16 @@ const DashboardScreen = () => {
                 iconColor="#f97316"
               />
 
-              <StatCard 
-                title="Days Visited"
-                value={summary.days_visited}
-                subtitle="This month"
-                icon="calendar-outline"
-                borderColor="border-green-500"
-                iconColor="#22c55e"
-              />
+              {!isStaffOrFaculty && (
+                <StatCard 
+                  title="Days Visited"
+                  value={summary.days_visited}
+                  subtitle="This month"
+                  icon="calendar-outline"
+                  borderColor="border-green-500"
+                  iconColor="#22c55e"
+                />
+              )}
 
               <StatCard 
                 title="Overdue Books"
@@ -244,14 +251,16 @@ const DashboardScreen = () => {
                   onPress={() => navigation.navigate('History')}
                 />
 
-                <ActionButton 
-                  title="My Attendance"
-                  subtitle="Check your attendance history"
-                  icon="person-outline"
-                  bgColor="bg-green-50"
-                  iconColor="#22c55e"
-                  onPress={() => navigation.navigate('Attendance')}
-                />
+                {!isStaffOrFaculty && (
+                  <ActionButton 
+                    title="My Attendance"
+                    subtitle="Check your attendance history"
+                    icon="person-outline"
+                    bgColor="bg-green-50"
+                    iconColor="#22c55e"
+                    onPress={() => navigation.navigate('Attendance')}
+                  />
+                )}
               </View>
             </View>
           </View>

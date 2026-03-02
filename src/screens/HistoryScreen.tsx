@@ -146,7 +146,7 @@ const HistoryScreen = () => {
         }
       >
         {/* Page Title Section */}
-        <View className="mb-8 px-3">
+        <View className="mb-8 px-1">
           <Text className="text-3xl font-bold text-slate-900 mb-2">My Borrowing History</Text>
           <Text className="text-slate-500 text-base">
             Complete record of your library borrowing activity with detailed information.
@@ -158,7 +158,7 @@ const HistoryScreen = () => {
             <ActivityIndicator size="large" color="#EA580C" />
           </View>
         ) : (
-          <View className="px-3">
+          <View className="px-1">
             {/* Summary Cards Vertical List */}
             <View className="mb-8">
               <SummaryCard
