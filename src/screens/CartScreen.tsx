@@ -66,23 +66,34 @@ const CartScreen = () => {
     if (selectedItems.length === cartItems.length && cartItems.length > 0) {
       setSelectedItems([]);
     } else {
-      setSelectedItems(cartItems.map((item, index) => `${item.id}-${index}`));
+      // FIX: Use cart_id fallback to id for uniqueness
+      setSelectedItems(cartItems.map((item, index) => `${item.cart_id || item.id}-${index}`));
     }
   };
 
-  const handleDelete = async (id: number, uniqueKey: string) => {
+  const handleDelete = async (idToUse: number | undefined, uniqueKey: string) => {
+    // FIX: Catch undefined IDs early
+    if (!idToUse) {
+        Alert.alert('Error', 'Invalid item ID. Cannot remove from cart.');
+        return;
+    }
+
+    console.log('Trash button clicked for item ID:', idToUse);
     Alert.alert('Remove Item', 'Are you sure you want to remove this item from your cart?', [
-      { text: 'Cancel', style: 'cancel' },
+      { text: 'Cancel', style: 'cancel', onPress: () => console.log('Delete cancelled') },
       {
         text: 'Remove',
         style: 'destructive',
         onPress: async () => {
-          const success = await removeFromCart(id);
-          if (success) {
-            setCartItems((prev) => prev.filter((item) => item.id !== id));
+          console.log('Confirming delete for item ID:', idToUse);
+          const result = await removeFromCart(idToUse);
+          console.log('Delete result:', result);
+          if (result.success) {
+            // FIX: Filter based on cart_id or id depending on what's available
+            setCartItems((prev) => prev.filter((item) => (item.cart_id || item.id) !== idToUse));
             setSelectedItems((prev) => prev.filter((key) => key !== uniqueKey));
           } else {
-            Alert.alert('Error', 'Failed to remove item. Please try again.');
+            Alert.alert('Error', result.message || 'Failed to remove item. Please try again.');
           }
         },
       },
@@ -143,8 +154,8 @@ const CartScreen = () => {
   };
 
   const selectedBooksCount = cartItems.filter((item, index) => {
-    const uniqueKey = `${item.id}-${index}`;
-    const isSelected = selectedItems.includes(uniqueKey);
+    const itemUniqueKey = `${item.cart_id || item.id}-${index}`;
+    const isSelected = selectedItems.includes(itemUniqueKey);
     const details = item.item_details || (item as any).book || item;
     const isBook = item.type === 'book' || !!(item as any).book || !!details.author;
     return isSelected && isBook;
@@ -154,10 +165,9 @@ const CartScreen = () => {
 
   return (
     <SafeAreaView style={{ flex: 1 }} className="bg-[#FDFBF7]" edges={['bottom', 'left', 'right']}>
-      {/* FIX: Tinanggal ang extra View na may height: '100%' na sumisira sa layout */}
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }} // FIX: Padding bottom para hindi matakpan ng tabs
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }} 
         showsVerticalScrollIndicator={false}
       >
         <View className="p-6">
@@ -217,7 +227,9 @@ const CartScreen = () => {
               {cartItems.map((item, index) => {
                 const details = item.item_details || (item as any).book || (item as any).equipment || item;
                 const isBook = item.type === 'book' || !!(item as any).book || !!details.author;
-                const itemUniqueKey = `${item.id}-${index}`;
+                
+                // FIX: Gamitin ang cart_id para unique kung available, fallback sa id
+                const itemUniqueKey = `${item.cart_id || item.id}-${index}`;
                 const isSelected = selectedItems.includes(itemUniqueKey);
 
                 return (
@@ -253,7 +265,8 @@ const CartScreen = () => {
                       </View>
                     </TouchableOpacity>
 
-                    <TouchableOpacity onPress={() => handleDelete(item.id, itemUniqueKey)} className="ml-2 p-2">
+                    {/* FIX: Ipapasa na natin ang cart_id imbes na item.id */}
+                    <TouchableOpacity onPress={() => handleDelete(item.cart_id || item.id, itemUniqueKey)} className="ml-2 p-2">
                       <Ionicons name="trash-outline" size={22} color="#94a3b8" />
                     </TouchableOpacity>
                   </View>
@@ -264,7 +277,7 @@ const CartScreen = () => {
         </View>
       </ScrollView>
 
-      {/* Detail Modal stays the same */}
+      {/* Detail Modal */}
       <Modal visible={isModalVisible} transparent={true} animationType="fade" onRequestClose={() => setIsModalVisible(false)}>
         <View className="flex-1 bg-black/50 justify-center p-6">
           <View className="bg-white rounded-3xl p-6 shadow-2xl max-h-[85%]">
@@ -286,13 +299,14 @@ const CartScreen = () => {
                     )}
                   </View>
                 </View>
-                                <View className="space-y-4">
-                                  <DetailRow label="Title" value={selectedItemDetails.title || selectedItemDetails.name} bold />
-                                  <DetailRow label="Author" value={selectedItemDetails.author} />
-                                  <DetailRow label="Accession #" value={selectedItemDetails.accession_number} />
-                                  <DetailRow label="Call Number" value={selectedItemDetails.call_number} />
-                                  <DetailRow label="Subject" value={selectedItemDetails.subject} />
-                                </View>              </ScrollView>
+                <View className="space-y-4">
+                  <DetailRow label="Title" value={selectedItemDetails.title || selectedItemDetails.name} bold />
+                  <DetailRow label="Author" value={selectedItemDetails.author} />
+                  <DetailRow label="Accession #" value={selectedItemDetails.accession_number} />
+                  <DetailRow label="Call Number" value={selectedItemDetails.call_number} />
+                  <DetailRow label="Subject" value={selectedItemDetails.subject} />
+                </View>
+              </ScrollView>
             )}
             <TouchableOpacity onPress={() => setIsModalVisible(false)} className="mt-8 bg-orange-600 py-3.5 rounded-2xl items-center">
               <Text className="text-white font-bold text-lg">Close</Text>
@@ -306,7 +320,7 @@ const CartScreen = () => {
 
 const DetailRow = ({ label, value, bold = false }: { label: string; value?: string; bold?: boolean }) => {
   const displayValue = (!value || value.toLowerCase() === 'na' || value.trim() === '') ? 'N/A' : value;
-  
+
   return (
     <View className="border-b border-slate-50 pb-2 mb-2">
       <Text className="text-slate-400 font-bold text-[10px] uppercase mb-0.5">{label}</Text>

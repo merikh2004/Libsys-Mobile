@@ -5,9 +5,10 @@ export type ItemType = 'book' | 'equipment';
 
 export interface CartItem {
   id: number;
+  cart_id?: number; // Added to match actual API response
   type: ItemType;
   item_id: number;
-  item_details: Book | any; // Using Book type for now, can be extended for equipment
+  item_details: Book | any;
   created_at: string;
 }
 
@@ -57,7 +58,7 @@ export const fetchCartItems = async (): Promise<CartItem[]> => {
   try {
     const response = await api.get<CartResponse>('/api/cart');
     console.log('Cart API Response:', JSON.stringify(response.data, null, 2));
-    
+
     if (response.data && response.data.success) {
       // Ensure we return an array
       return Array.isArray(response.data.data) ? response.data.data : [];
@@ -72,13 +73,39 @@ export const fetchCartItems = async (): Promise<CartItem[]> => {
 /**
  * Removes an item from the cart.
  */
-export const removeFromCart = async (cartItemId: number): Promise<boolean> => {
+export const removeFromCart = async (cartItemId: number): Promise<{ success: boolean; message?: string }> => {
   try {
+    // 1. Double check kung invalid ang ID
+    if (!cartItemId) {
+      console.error('BUMAGSAK: Walang valid na ID na naipasa sa removeFromCart');
+      return { success: false, message: 'Invalid item ID' };
+    }
+
+    console.log('Tinatawag na ang backend para burahin ang ID:', cartItemId);
+
+    // 2. I-call ang API (Eto ang eksaktong format sa Postman URL bar mo: /api/cart/85)
     const response = await api.delete(`/api/cart/${cartItemId}`);
-    return response.data && response.data.success;
-  } catch (error) {
-    console.error('Failed to remove item from cart:', error);
-    return false;
+
+    // 3. I-log ang result para makita mo agad kung successful
+    console.log(`Backend nag-reply! Status: ${response.status}`);
+    console.log('Data mula sa server:', response.data);
+
+    // I-check kung tagumpay (200 o kaya true yung success flag)
+    const isSuccess = response.data?.success === true || response.status === 200 || response.status === 204;
+
+    return {
+      success: isSuccess,
+      message: response.data?.message || 'Item successfully removed'
+    };
+  } catch (error: any) {
+    // Kung may error, ito ang lalabas sa console.
+    const errorMessage = error.response?.data?.message || error.message || 'Unknown error occurred';
+    console.error('SABLAY sa pagtanggal:', error.response?.status, errorMessage);
+    
+    return {
+      success: false,
+      message: errorMessage
+    };
   }
 };
 
@@ -124,21 +151,21 @@ export const addToCart = async (book: any): Promise<{ success: boolean; message?
   try {
     // Get the ID from either 'id' or 'book_id' field
     const bookId = book.id || book.book_id;
-    
+
     if (!bookId) {
       return { success: false, message: 'Invalid Book ID' };
     }
 
     console.log('Adding to cart, Book ID:', bookId);
-    
-    const response = await api.post('/api/cart/add', { 
-      book_id: bookId 
+
+    const response = await api.post('/api/cart/add', {
+      book_id: bookId
     });
-    
+
     // If API returns success: false explicitly, it's a failure. 
     // Otherwise, as long as it didn't throw an error, treat it as success.
     const isSuccess = response.data && response.data.success !== false;
-    
+
     return {
       success: isSuccess,
       message: response.data && response.data.message
