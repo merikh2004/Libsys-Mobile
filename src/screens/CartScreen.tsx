@@ -98,6 +98,7 @@ const CartScreen = () => {
       'Are you sure you want to remove this item from your cart?', 
       async () => {
         closeAlert();
+        setIsLoading(true);
         const result = await removeFromCart(idToUse);
         if (result.success) {
           setCartItems((prev) => prev.filter((item) => (item.cart_id || item.id) !== idToUse));
@@ -105,25 +106,41 @@ const CartScreen = () => {
         } else {
           showAlert('Error', result.message || 'Failed to remove item. Please try again.');
         }
+        setIsLoading(false);
       },
       true, 
       'Remove'
     );
   };
 
+  // UPDATED: handleClearCart ngayon ay nag-iipon muna ng cart_ids para ipasa sa bulkDelete API
   const handleClearCart = () => {
+    if (cartItems.length === 0) {
+      showAlert('Info', 'Your cart is already empty.');
+      return;
+    }
+
     showAlert(
       'Clear Cart',
       'Are you sure you want to clear your entire cart?',
       async () => {
         closeAlert();
-        const success = await clearCart();
+        setIsLoading(true);
+        
+        // Kunin lahat ng id mula sa kasalukuyang cartItems
+        const allCartIds = cartItems.map(item => item.cart_id || item.id || 0).filter(id => id !== 0);
+
+        const success = await clearCart(allCartIds);
+        
         if (success) {
           setCartItems([]);
           setSelectedItems([]);
+          showAlert('Success', 'Cart has been cleared successfully.');
         } else {
-          showAlert('Error', 'Failed to clear cart.');
+          showAlert('Error', 'Failed to clear cart. Please try again.');
         }
+        
+        setIsLoading(false);
       },
       true,
       'Clear All'
@@ -167,20 +184,19 @@ const CartScreen = () => {
           } else {
             const errorMsg = response?.message || 'Failed to checkout.';
             
-            // DITO ANG MAGIC FIX: Intercepting the Incomplete Profile Error
             if (errorMsg.toLowerCase().includes('incomplete profile')) {
               showAlert(
                 'Profile Setup Required',
                 `${errorMsg}\n\nPlease complete your profile information to proceed with borrowing.`,
                 () => {
                   closeAlert();
-                  navigation.navigate('Settings' as never); // Direct sa SettingsScreen
+                  navigation.navigate('Settings' as never);
                 },
-                true, // Pakita ang Cancel button para pwede mag-back out
-                'Go to Settings' // Custom Button text!
+                true, 
+                'Go to Settings' 
               );
             } else {
-              showAlert('Error', errorMsg); // Ordinary error modal para sa iba
+              showAlert('Error', errorMsg); 
             }
           }
         } catch (error) {

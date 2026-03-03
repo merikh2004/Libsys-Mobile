@@ -89,11 +89,20 @@ export const removeFromCart = async (cartItemId: number): Promise<{ success: boo
   }
 };
 
-export const clearCart = async (): Promise<boolean> => {
+// FIX: Inayos ang key name na hinihingi ng Laravel (cart_ids imbes na cart_item_ids)
+export const clearCart = async (cartItemIds?: number[]): Promise<boolean> => {
   try {
-    const response = await api.delete('/api/cart');
+    // Ipasa ang array gamit ang eksaktong pangalan na "cart_ids"
+    const payload = cartItemIds && cartItemIds.length > 0 
+      ? { cart_ids: cartItemIds } 
+      : { cart_ids: [] }; // Fallback para hindi mag-error na "required" kung sakaling walang laman
+
+    // Gagamitin ang POST endpoint
+    const response = await api.post('/api/cart/bulkDelete', payload);
+    
     return response.data && response.data.success;
   } catch (error) {
+    console.error('Failed to clear cart (bulkDelete):', error);
     return false;
   }
 };
