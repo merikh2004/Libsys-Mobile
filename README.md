@@ -1,79 +1,96 @@
-# 📚 LIBSYS Mobile - Frontend
+# 📚 LIBSYS Mobile
 
-LIBSYS Mobile is a modern, cross-platform mobile application frontend built with **React Native** and **Expo**. This project focuses on providing a clean and intuitive user interface for the Libsys library management system.
+Welcome to **LIBSYS Mobile**, a modern, cross-platform mobile frontend built with **React Native** and **Expo**. This app is designed to provide a seamless library management experience with a clean and intuitive user interface.
 
-## 🚀 Technologies
+---
 
-- **[React Native](https://reactnative.dev/)** - Core framework
-- **[Expo](https://expo.dev/)** - Development platform
-- **[TypeScript](https://www.typescriptlang.org/)** - Static typing
-- **[React Navigation](https://reactnavigation.org/)** - Navigation management
-- **[Expo Router](https://docs.expo.dev/router/introduction/)** - File-based routing (configured)
+## 🛠️ Quick Start Guide
 
-## 📁 Project Structure
+Follow these steps to get the app running on your machine and your mobile device.
 
-```text
-src/
-├── api/          # API service configurations
-├── assets/       # Static assets (images, fonts)
-├── components/   # Reusable UI components
-├── constants/    # App constants and theme
-├── hooks/        # Custom React hooks
-├── navigation/   # Navigation configuration & types
-├── screens/      # Application screens (Dashboard, Login, etc.)
-├── services/     # Business logic & services
-└── utils/        # Helper functions
-```
+### 1. Prerequisites
 
-## 🛠️ Getting Started
+Before you begin, ensure you have the following installed:
+- **Node.js** (LTS version)
+- **npm** or **yarn**
+- **Expo Go** app (Download it from the [Google Play Store](https://play.google.com/store/apps/details?id=host.exp.exponent) or [Apple App Store](https://apps.apple.com/us/app/expo-go/id982107779))
 
-### Prerequisites
+### 2. Installation
 
-- Node.js (Latest LTS recommended)
-- npm or yarn
-- Expo Go app on your mobile device (for testing)
-
-### Installation
-
-1. Clone the repository:
-
+1. **Clone the repository:**
    ```bash
    git clone <repository-url>
-   cd "Libsys Mobile"
+   cd Libsys-Mobile
    ```
 
-2. Install dependencies:
+2. **Install dependencies:**
    ```bash
    npm install
    ```
 
-### Running the App
+3. **Configure Environment Variables:**
+   Rename or create a `.env` file in the root directory and set your API URL.
+   > **Note:** If you are testing on a **physical device**, use your computer's local IP address instead of `127.0.0.1` (e.g., `http://192.168.1.10:8000`).
 
-Start the development server:
+   ```env
+   API_BASE_URL=http://your-local-ip:8000
+   ```
+
+---
+
+## 📱 How to Run the App
+
+Start the Expo development server by running:
 
 ```bash
 npm start
 ```
 
-- Press `a` for Android emulator
-- Press `i` for iOS simulator
-- Press `w` for web
-- Scan the QR code with Expo Go (Android) or Camera app (iOS) to run on your physical device.
+Once the server is running, you'll see a QR code in your terminal. Here’s how to open the app on different platforms:
 
-## 📱 Features
+### ⚡ Running on a Physical Device (Recommended)
+This is the easiest way to test the app with real mobile gestures and hardware.
+1. Make sure your phone and computer are on the **same Wi-Fi network**.
+2. **Android:** Open the **Expo Go** app and tap "Scan QR Code".
+3. **iOS:** Open the default **Camera app** and point it at the QR code.
+4. The app will bundle and open automatically!
 
-- **Authentication**: Modern login interface.
-- **Dashboard**: Overview of library activities and stats.
-- **Cross-Platform**: Compatible with Android, iOS, and Web.
+### 🤖 Running on Android Emulator
+1. Open **Android Studio** and start a Virtual Device (AVD).
+2. Press `a` in the terminal where Expo is running.
+3. The app will install and open on your emulator.
 
-## 📜 Scripts
+### 🍎 Running on iOS Simulator (Mac Only)
+1. Ensure you have **Xcode** installed.
+2. Press `i` in the terminal where Expo is running.
+3. The app will open in the iOS Simulator.
 
-- `npm start`: Starts the Expo development server.
-- `npm run android`: Opens the app on an Android emulator/device.
-- `npm run ios`: Opens the app on an iOS simulator.
-- `npm run web`: Opens the app in a web browser.
-- `npm run lint`: Runs ESLint for code quality checks.
+### 🌐 Running on Web Browser
+1. Press `w` in the terminal.
+2. The app will open in your default web browser (Chrome/Edge/Safari).
 
 ---
 
-_Built with ❤️ for Libsys._
+## 📁 Project Structure
+
+```text
+src/
+├── assets/       # Images, fonts, and static files
+├── components/   # Reusable UI elements (Buttons, Inputs, etc.)
+├── context/      # Authentication and Global State (AuthContext, ToastContext)
+├── navigation/   # App routing logic (Tab and Stack navigators)
+├── screens/      # Main application pages (Dashboard, Books, QR, etc.)
+├── services/     # API integration and business logic
+└── styles/       # Global CSS and Tailwind configurations
+```
+
+## 🚀 Key Features
+
+- **Real-time Attendance**: Scan QR codes for library check-ins.
+- **Book Management**: Browse and manage your library cart.
+- **Secure Auth**: Login and session management via Keychain.
+- **Cross-Platform**: Optimized for Android, iOS, and Web.
+
+---
+
+Built with ❤️ for Libsys.
