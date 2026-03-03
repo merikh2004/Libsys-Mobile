@@ -132,22 +132,16 @@ const SettingsScreen = () => {
     setPendingRegForm(null);
   };
 
-  // ==========================================
-  // UNIVERSAL ASSET URL HANDLER
-  // ==========================================
   const getAssetUrl = (path: string | null | undefined) => {
     if (!path) return null;
     if (path.startsWith('http')) return path;
     
-    // Tanggalin ang windows backslash
     let cleanPath = path.replace(/\\/g, '/');
     
-    // Siguraduhing may "storage/" sa unahan
     if (!cleanPath.startsWith('storage/') && !cleanPath.includes('/storage/')) {
       cleanPath = `storage/${cleanPath}`; 
     }
 
-    // Kung ang BASE_URL mo ay may "/api" sa dulo, tatanggalin natin para tama ang image path
     const serverUrl = BASE_URL.replace(/\/api\/?$/, '');
 
     return `${serverUrl}${cleanPath.startsWith('/') ? '' : '/'}${cleanPath}`;
@@ -434,9 +428,22 @@ const SettingsScreen = () => {
                   </TouchableOpacity>
                 )}
               </View>
-              <Text className="text-xl font-bold text-slate-900 uppercase">
-                {profile?.first_name} {profile?.last_name}
-              </Text>
+              
+              {/* NAME AND BADGE SECTION */}
+              <View className="flex-row items-center justify-center flex-wrap mt-1">
+                <Text className="text-xl font-bold text-slate-900 uppercase text-center mr-2">
+                  {profile?.first_name} {profile?.last_name}
+                </Text>
+                
+                {/* VERIFIED BADGE */}
+                {profile?.is_qualified && (
+                  <View className="bg-blue-50 px-2 py-1 rounded-full border border-blue-200 flex-row items-center">
+                    <Ionicons name="checkmark-circle" size={14} color="#3b82f6" />
+                    <Text className="text-blue-600 text-xs font-bold ml-1 uppercase">Verified</Text>
+                  </View>
+                )}
+              </View>
+              
             </View>
 
             {/* BASIC INFO */}
