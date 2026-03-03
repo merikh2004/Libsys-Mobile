@@ -96,6 +96,18 @@ const SettingsScreen = () => {
       return;
     }
 
+    // Validation bago mag-save (Kung mali ang format ng phone number)
+    const contact = formData.contact || '';
+    const isContactValid = 
+      (contact.startsWith('09') && contact.length === 11) || 
+      (contact.startsWith('+639') && contact.length === 13) ||
+      (contact.startsWith('639') && contact.length === 12);
+
+    if (!isContactValid) {
+      showToast('Invalid contact number format.', 'warning');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const response = await updateProfile(formData);
@@ -160,6 +172,40 @@ const SettingsScreen = () => {
     return `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
   };
 
+  // CUSTOM HANDLER PARA SA MGA SPECIFIC INPUT RESTRICTIONS
+  const handleInputChange = (field: keyof ProfileData, text: string) => {
+    let formattedText = text;
+
+    if (field === 'year_level') {
+      // Numbers only, 1 digit max
+      formattedText = text.replace(/[^0-9]/g, '').substring(0, 1);
+    } 
+    else if (field === 'section') {
+      // Letters only, uppercase, 1 char max
+      formattedText = text.replace(/[^a-zA-Z]/g, '').toUpperCase().substring(0, 1);
+    } 
+    else if (field === 'contact') {
+      // Phone number formatting
+      // Papayagan ang '+', tapos digits lang
+      formattedText = text.replace(/[^\d+]/g, '');
+
+      // Limit based on starting string
+      if (formattedText.startsWith('+63')) {
+        formattedText = formattedText.substring(0, 13); // +639123456789
+      } else if (formattedText.startsWith('63')) {
+        formattedText = formattedText.substring(0, 12); // 639123456789
+      } else if (formattedText.startsWith('09')) {
+        formattedText = formattedText.substring(0, 11); // 09123456789
+      } else if (formattedText.length > 0 && !formattedText.startsWith('+') && !formattedText.startsWith('6') && !formattedText.startsWith('0')) {
+          // Kung nagsimula sa ibang number, puwersahin gawing 09 muna (optional UX rule)
+          formattedText = '09' + formattedText.replace(/[^0-9]/g, '');
+          formattedText = formattedText.substring(0, 11);
+      }
+    }
+
+    setFormData({ ...formData, [field]: formattedText });
+  };
+
   const renderInput = (label: string, field: keyof ProfileData, keyboardType: any = 'default', isRequired = false) => (
     <View className="mb-4">
       <View className="flex-row items-center mb-1.5 ml-1">
@@ -171,7 +217,7 @@ const SettingsScreen = () => {
           isEditing ? 'bg-white border-orange-100 text-slate-900' : 'bg-slate-50 border-slate-100 text-slate-500'
         }`}
         value={String(formData[field] || '')}
-        onChangeText={(text) => setFormData({ ...formData, [field]: text })}
+        onChangeText={(text) => handleInputChange(field, text)} // Ginamit ang custom handler
         editable={isEditing}
         placeholder={`Enter ${label.toLowerCase()}`}
         keyboardType={keyboardType}
@@ -185,11 +231,11 @@ const SettingsScreen = () => {
 
     const data = isFaculty 
       ? (colleges || []).map(c => ({ 
-          label: c.college_name, 
+          label: c.college_name || c.college_code, 
           value: c.college_id 
         })) 
       : (courses || []).map(c => ({ 
-          label: c.course_title, 
+          label: c.course_title || c.course_code, 
           value: c.course_id 
         }));
 
