@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   ScrollView,
   Text,
@@ -11,12 +12,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { RootStackParamList } from '../navigation/types';
 import {
   CartItem,
   checkout,
   clearCart,
   fetchCartItems,
   removeFromCart,
+  validateCheckoutRules,
 } from '../services/cart';
 
 // Separate Checkbox component to ensure clean interaction
@@ -32,13 +35,30 @@ const Checkbox = ({ checked, onPress }: { checked: boolean; onPress: () => void 
 );
 
 const CartScreen = () => {
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Modal State
+  // Detail Modal State
   const [selectedItemDetails, setSelectedItemDetails] = useState<any | null>(null);
-  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
+
+  // Custom Alert Modal State (Pampalit sa window.confirm at Alert.alert)
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    onConfirm?: () => void;
+    showCancel?: boolean;
+    confirmText?: string;
+  }>({ visible: false, title: '', message: '' });
+
+  const showAlert = (title: string, message: string, onConfirm?: () => void, showCancel = false, confirmText = 'OK') => {
+    setAlertConfig({ visible: true, title, message, onConfirm, showCancel, confirmText });
+  };
+
+  const closeAlert = () => setAlertConfig(prev => ({ ...prev, visible: false }));
 
   const loadCart = async () => {
     try {
@@ -66,91 +86,114 @@ const CartScreen = () => {
     if (selectedItems.length === cartItems.length && cartItems.length > 0) {
       setSelectedItems([]);
     } else {
-      // FIX: Use cart_id fallback to id for uniqueness
       setSelectedItems(cartItems.map((item, index) => `${item.cart_id || item.id}-${index}`));
     }
   };
 
-  const handleDelete = async (idToUse: number | undefined, uniqueKey: string) => {
-    // FIX: Catch undefined IDs early
+  const handleDelete = (idToUse: number | undefined, uniqueKey: string) => {
     if (!idToUse) {
-        Alert.alert('Error', 'Invalid item ID. Cannot remove from cart.');
-        return;
-    }
-
-    console.log('Trash button clicked for item ID:', idToUse);
-    Alert.alert('Remove Item', 'Are you sure you want to remove this item from your cart?', [
-      { text: 'Cancel', style: 'cancel', onPress: () => console.log('Delete cancelled') },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: async () => {
-          console.log('Confirming delete for item ID:', idToUse);
-          const result = await removeFromCart(idToUse);
-          console.log('Delete result:', result);
-          if (result.success) {
-            // FIX: Filter based on cart_id or id depending on what's available
-            setCartItems((prev) => prev.filter((item) => (item.cart_id || item.id) !== idToUse));
-            setSelectedItems((prev) => prev.filter((key) => key !== uniqueKey));
-          } else {
-            Alert.alert('Error', result.message || 'Failed to remove item. Please try again.');
-          }
-        },
-      },
-    ]);
-  };
-
-  const handleClearCart = async () => {
-    Alert.alert('Clear Cart', 'Are you sure you want to clear your entire cart?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Clear All',
-        style: 'destructive',
-        onPress: async () => {
-          const success = await clearCart();
-          if (success) {
-            setCartItems([]);
-            setSelectedItems([]);
-          } else {
-            Alert.alert('Error', 'Failed to clear cart.');
-          }
-        },
-      },
-    ]);
-  };
-
-  const handleCheckout = async () => {
-    if (selectedItems.length === 0) {
-      Alert.alert('Error', 'Please select at least one item to check out.');
+      showAlert('Error', 'Invalid item ID. Cannot remove from cart.');
       return;
     }
 
-    Alert.alert('Check Out', `Confirm check out for ${selectedItems.length} items?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Confirm',
-        onPress: async () => {
-          const realIdsToCheckout = selectedItems.map(key => {
-            const idPart = key.split('-')[0];
-            return idPart === 'undefined' ? 0 : Number(idPart);
-          });
+    // Gamit ang Custom Modal para sa Delete Confirmation
+    showAlert(
+      'Remove Item',
+      'Are you sure you want to remove this item from your cart?',
+      async () => {
+        closeAlert();
+        const result = await removeFromCart(idToUse);
+        if (result.success) {
+          setCartItems((prev) => prev.filter((item) => (item.cart_id || item.id) !== idToUse));
+          setSelectedItems((prev) => prev.filter((key) => key !== uniqueKey));
+        } else {
+          showAlert('Error', result.message || 'Failed to remove item. Please try again.');
+        }
+      },
+      true, // Ipakita ang Cancel button
+      'Remove'
+    );
+  };
 
-          const success = await checkout(realIdsToCheckout);
-          if (success) {
-            Alert.alert('Success', 'Check out successful!');
+  const handleClearCart = () => {
+    showAlert(
+      'Clear Cart',
+      'Are you sure you want to clear your entire cart?',
+      async () => {
+        closeAlert();
+        const success = await clearCart();
+        if (success) {
+          setCartItems([]);
+          setSelectedItems([]);
+        } else {
+          showAlert('Error', 'Failed to clear cart.');
+        }
+      },
+      true,
+      'Clear All'
+    );
+  };
+
+  const handleCheckout = () => {
+    if (selectedItems.length === 0) {
+      showAlert('Error', 'Please select at least one item to check out.');
+      return;
+    }
+
+    const itemsToValidate = cartItems.filter((item, index) => {
+      const itemUniqueKey = `${item.cart_id || item.id}-${index}`;
+      return selectedItems.includes(itemUniqueKey);
+    });
+
+    const validation = validateCheckoutRules(itemsToValidate);
+    if (!validation.isValid) {
+      showAlert('Checkout Restricted', validation.message || 'Validation error');
+      return;
+    }
+
+    // I-trigger ang Custom Confirm Modal para sa Checkout
+    showAlert(
+      'Check Out',
+      `Confirm check out for ${selectedItems.length} items?`,
+      async () => {
+        closeAlert();
+        setIsLoading(true);
+        try {
+          const realIdsToCheckout = itemsToValidate.map(item => item.cart_id || item.id || 0);
+          const response = await checkout(realIdsToCheckout);
+
+          if (response && response.success) {
             loadCart();
             setSelectedItems([]);
+            // Ipakita ang success message tapos mag-navigate DALA ANG DATA
+            showAlert('Success', 'Check out successful!', () => {
+              closeAlert();
+
+              // THE MAGIC FIX: Nested Navigation Parameter Passing
+              navigation.navigate('Main' as any, {
+                screen: 'QR',
+                params: { ticket: response.data }
+              });
+
+            });
           } else {
-            Alert.alert('Error', 'Failed to checkout.');
+            showAlert('Error', response?.message || 'Failed to checkout.');
           }
-        },
+        } catch (error) {
+          console.error('Checkout error:', error);
+          showAlert('Error', 'An unexpected error occurred during checkout.');
+        } finally {
+          setIsLoading(false);
+        }
       },
-    ]);
+      true,
+      'Confirm'
+    );
   };
 
   const openDetailModal = (details: any) => {
     setSelectedItemDetails(details);
-    setIsModalVisible(true);
+    setIsDetailModalVisible(true);
   };
 
   const selectedBooksCount = cartItems.filter((item, index) => {
@@ -167,17 +210,15 @@ const CartScreen = () => {
     <SafeAreaView style={{ flex: 1 }} className="bg-[#FDFBF7]" edges={['bottom', 'left', 'right']}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }} 
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
         <View className="p-6">
-          {/* Header */}
           <View className="mb-2">
             <Text className="text-3xl font-bold text-[#3E2723]">My Cart</Text>
             <Text className="text-slate-500 mt-2 text-base">Review and checkout your items.</Text>
           </View>
 
-          {/* total items badge */}
           <View className="flex-row justify-end mb-6">
             <View className="bg-white px-4 py-2 rounded-xl border border-orange-100 flex-row items-center shadow-sm">
               <Ionicons name="cart-outline" size={18} color="#4B5563" />
@@ -197,7 +238,6 @@ const CartScreen = () => {
             </View>
           ) : (
             <>
-              {/* Summary Section */}
               <View className="bg-white rounded-2xl p-5 mb-8 border border-orange-100 shadow-sm">
                 <View className="flex-row justify-between items-center mb-4">
                   <Text className="text-xl font-bold text-[#3E2723]">Summary</Text>
@@ -222,13 +262,10 @@ const CartScreen = () => {
                 </View>
               </View>
 
-              {/* Items List */}
               <Text className="text-xl font-bold text-[#3E2723] mb-4">Items in Cart</Text>
               {cartItems.map((item, index) => {
                 const details = item.item_details || (item as any).book || (item as any).equipment || item;
                 const isBook = item.type === 'book' || !!(item as any).book || !!details.author;
-                
-                // FIX: Gamitin ang cart_id para unique kung available, fallback sa id
                 const itemUniqueKey = `${item.cart_id || item.id}-${index}`;
                 const isSelected = selectedItems.includes(itemUniqueKey);
 
@@ -265,7 +302,6 @@ const CartScreen = () => {
                       </View>
                     </TouchableOpacity>
 
-                    {/* FIX: Ipapasa na natin ang cart_id imbes na item.id */}
                     <TouchableOpacity onPress={() => handleDelete(item.cart_id || item.id, itemUniqueKey)} className="ml-2 p-2">
                       <Ionicons name="trash-outline" size={22} color="#94a3b8" />
                     </TouchableOpacity>
@@ -277,13 +313,13 @@ const CartScreen = () => {
         </View>
       </ScrollView>
 
-      {/* Detail Modal */}
-      <Modal visible={isModalVisible} transparent={true} animationType="fade" onRequestClose={() => setIsModalVisible(false)}>
+      {/* DETAIL MODAL */}
+      <Modal visible={isDetailModalVisible} transparent={true} animationType="fade" onRequestClose={() => setIsDetailModalVisible(false)}>
         <View className="flex-1 bg-black/50 justify-center p-6">
           <View className="bg-white rounded-3xl p-6 shadow-2xl max-h-[85%]">
             <View className="flex-row justify-between items-center mb-6">
               <Text className="text-2xl font-bold text-[#3E2723]">Item Details</Text>
-              <TouchableOpacity onPress={() => setIsModalVisible(false)}>
+              <TouchableOpacity onPress={() => setIsDetailModalVisible(false)}>
                 <Ionicons name="close-circle" size={32} color="#94a3b8" />
               </TouchableOpacity>
             </View>
@@ -308,9 +344,42 @@ const CartScreen = () => {
                 </View>
               </ScrollView>
             )}
-            <TouchableOpacity onPress={() => setIsModalVisible(false)} className="mt-8 bg-orange-600 py-3.5 rounded-2xl items-center">
+            <TouchableOpacity onPress={() => setIsDetailModalVisible(false)} className="mt-8 bg-orange-600 py-3.5 rounded-2xl items-center">
               <Text className="text-white font-bold text-lg">Close</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* CUSTOM ALERT/CONFIRM MODAL (Universal para sa Web/iOS/Android) */}
+      <Modal visible={alertConfig.visible} transparent={true} animationType="fade">
+        <View className="flex-1 bg-black/50 justify-center items-center p-6">
+          <View className="bg-white rounded-2xl p-6 w-full max-w-[340px] shadow-xl">
+            <Text className="text-xl font-bold text-slate-900 mb-2">{alertConfig.title}</Text>
+            <Text className="text-slate-600 text-base mb-6 leading-6">{alertConfig.message}</Text>
+
+            <View className="flex-row justify-end space-x-3">
+              {alertConfig.showCancel && (
+                <TouchableOpacity
+                  onPress={closeAlert}
+                  className="px-5 py-2.5 rounded-xl"
+                >
+                  <Text className="text-slate-500 font-bold text-base">Cancel</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                onPress={() => {
+                  if (alertConfig.onConfirm) {
+                    alertConfig.onConfirm();
+                  } else {
+                    closeAlert();
+                  }
+                }}
+                className="bg-orange-600 px-6 py-2.5 rounded-xl shadow-sm"
+              >
+                <Text className="text-white font-bold text-base">{alertConfig.confirmText || 'OK'}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

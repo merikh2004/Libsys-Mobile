@@ -101,7 +101,7 @@ export const removeFromCart = async (cartItemId: number): Promise<{ success: boo
     // Kung may error, ito ang lalabas sa console.
     const errorMessage = error.response?.data?.message || error.message || 'Unknown error occurred';
     console.error('SABLAY sa pagtanggal:', error.response?.status, errorMessage);
-    
+
     return {
       success: false,
       message: errorMessage
@@ -122,18 +122,32 @@ export const clearCart = async (): Promise<boolean> => {
   }
 };
 
-export interface ActiveTicket {
+export interface CheckoutData {
   transaction_code: string;
-  items_count: number;
-  status: string;
+  expires_at: string;
+  qrcode_url: string;
+  student_number?: string;
+  full_name?: string;
+  year?: string | number;
+  section?: string;
+  course?: string;
+}
+
+export interface CheckoutResponse {
+  success: boolean;
+  message: string;
+  data: CheckoutData;
 }
 
 /**
  * Fetches the active checkout ticket from the API.
  */
-export const fetchActiveTicket = async (): Promise<ActiveTicket | null> => {
+export const fetchActiveTicket = async (): Promise<CheckoutData | null> => {
   try {
-    const response = await api.get<{ success: boolean; data: ActiveTicket }>('/api/checkout');
+    // FIX: Binago natin ang endpoint. Hindi pwedeng 'GET /api/cart/checkout'.
+    // Palitan mo ang '/api/active-ticket' kung ano ang totoong GET route mo sa Laravel.
+    const response = await api.get<{ success: boolean; data: CheckoutData }>('/api/active-ticket');
+
     if (response.data && response.data.success && response.data.data) {
       return response.data.data;
     }
@@ -182,12 +196,39 @@ export const addToCart = async (book: any): Promise<{ success: boolean; message?
 /**
  * Checks out selected items.
  */
-export const checkout = async (cartItemIds: number[]): Promise<boolean> => {
+export const checkout = async (cartItemIds: number[]): Promise<CheckoutResponse | null> => {
   try {
-    const response = await api.post('/api/checkout', { cart_item_ids: cartItemIds });
-    return response.data.success;
+    const response = await api.post<CheckoutResponse>('/api/cart/checkout', { cart_item_ids: cartItemIds });
+    return response.data;
   } catch (error) {
     console.error('Failed to checkout:', error);
-    return false;
+    return null;
   }
+};
+
+/**
+ * Validates selected items against library rules before checkout.
+ */
+export const validateCheckoutRules = (selectedItems: CartItem[]): { isValid: boolean; message?: string } => {
+  if (selectedItems.length === 0) {
+    return { isValid: false, message: 'Please select at least one item to check out.' };
+  }
+
+  // Example library rule: Maximum of 5 items per checkout
+  const MAX_ITEMS = 5;
+  if (selectedItems.length > MAX_ITEMS) {
+    return { isValid: false, message: `You can only check out up to ${MAX_ITEMS} items at a time.` };
+  }
+
+  // Example library rule: Ensure all items have accession numbers (valid library items)
+  const invalidItems = selectedItems.filter(item => {
+    const details = item.item_details || (item as any).book || (item as any).equipment || item;
+    return !details.accession_number;
+  });
+
+  if (invalidItems.length > 0) {
+    return { isValid: false, message: 'Some selected items are missing library identifiers.' };
+  }
+
+  return { isValid: true };
 };

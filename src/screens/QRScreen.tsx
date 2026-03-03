@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { RouteProp, useRoute } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -8,9 +9,8 @@ import {
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import Header from '../components/Header';
-import { fetchDashboard } from '../services/api';
-import { fetchCartItems } from '../services/cart';
-import { fetchProfile, ProfileData } from '../services/profile';
+import { MainTabParamList } from '../navigation/types';
+import { CheckoutData, fetchActiveTicket } from '../services/cart';
 
 const DetailRow = ({ label, value }: { label: string; value: string }) => (
   <View className="flex-row justify-between mb-3">
@@ -20,33 +20,25 @@ const DetailRow = ({ label, value }: { label: string; value: string }) => (
 );
 
 const QRScreen = () => {
-  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const route = useRoute<RouteProp<MainTabParamList, 'QR'>>();
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTicket, setActiveTicket] = useState<{
-    transaction_code: string;
-    items_count: number;
-    expires_at: string;
-  } | null>(null);
-  const [cartCount, setCartCount] = useState(0);
+  const [activeTicket, setActiveTicket] = useState<CheckoutData | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
-      try {
-        const [profileResponse, dashboardData, cartItems] = await Promise.all([
-          fetchProfile(),
-          fetchDashboard(),
-          fetchCartItems()
-        ]);
-        
-        if (profileResponse.success) {
-          setProfile(profileResponse.data);
-        }
-        
-        if (dashboardData && dashboardData.active_ticket) {
-          setActiveTicket(dashboardData.active_ticket);
-        }
+      // Priority 1: Check if ticket was passed as a route param
+      if (route.params?.ticket) {
+        setActiveTicket(route.params.ticket);
+        setIsLoading(false);
+        return;
+      }
 
-        setCartCount(cartItems.length);
+      // Priority 2: Fetch active ticket if none passed or needed refresh
+      try {
+        const ticketData = await fetchActiveTicket();
+        if (ticketData) {
+          setActiveTicket(ticketData);
+        }
       } catch (error) {
         console.error('Failed to load data:', error);
       } finally {
@@ -55,7 +47,7 @@ const QRScreen = () => {
     };
 
     loadData();
-  }, []);
+  }, [route.params?.ticket]);
 
   if (isLoading) {
     return (
@@ -67,10 +59,6 @@ const QRScreen = () => {
       </View>
     );
   }
-
-  const fullName = profile 
-    ? `${profile.first_name} ${profile.middle_name ? profile.middle_name + ' ' : ''}${profile.last_name}${profile.suffix ? ' ' + profile.suffix : ''}`
-    : 'N/A';
 
   return (
     <View className="flex-1 bg-slate-50">
@@ -125,11 +113,11 @@ const QRScreen = () => {
           <Text className="text-orange-800 text-sm mb-6">Information encoded in your QR ticket</Text>
 
           <View className="mb-6">
-            <DetailRow label="Student Number:" value={profile?.student_number || 'N/A'} />
-            <DetailRow label="Name:" value={fullName} />
-            <DetailRow label="Year & Section:" value={profile ? `${profile.year} - ${profile.section}` : 'N/A'} />
-            <DetailRow label="Course:" value={profile?.course || 'N/A'} />
-            <DetailRow label="Books:" value={`${activeTicket ? activeTicket.items_count : cartCount} Book(s)`} />
+            <DetailRow label="Student Number:" value={activeTicket?.student_number || 'N/A'} />
+            <DetailRow label="Name:" value={activeTicket?.full_name || 'N/A'} />
+            <DetailRow label="Year & Section:" value={activeTicket?.year ? `${activeTicket.year} - ${activeTicket.section || ''}` : 'N/A'} />
+            <DetailRow label="Course:" value={activeTicket?.course || 'N/A'} />
+            <DetailRow label="Expires at:" value={activeTicket?.expires_at || 'N/A'} />
           </View>
 
 
