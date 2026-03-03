@@ -22,7 +22,6 @@ import {
   validateCheckoutRules,
 } from '../services/cart';
 
-// Separate Checkbox component to ensure clean interaction
 const Checkbox = ({ checked, onPress }: { checked: boolean; onPress: () => void }) => (
   <TouchableOpacity
     onPress={onPress}
@@ -40,11 +39,9 @@ const CartScreen = () => {
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Detail Modal State
   const [selectedItemDetails, setSelectedItemDetails] = useState<any | null>(null);
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
 
-  // Custom Alert Modal State (Pampalit sa window.confirm at Alert.alert)
   const [alertConfig, setAlertConfig] = useState<{
     visible: boolean;
     title: string;
@@ -96,10 +93,9 @@ const CartScreen = () => {
       return;
     }
 
-    // Gamit ang Custom Modal para sa Delete Confirmation
     showAlert(
-      'Remove Item',
-      'Are you sure you want to remove this item from your cart?',
+      'Remove Item', 
+      'Are you sure you want to remove this item from your cart?', 
       async () => {
         closeAlert();
         const result = await removeFromCart(idToUse);
@@ -110,7 +106,7 @@ const CartScreen = () => {
           showAlert('Error', result.message || 'Failed to remove item. Please try again.');
         }
       },
-      true, // Ipakita ang Cancel button
+      true, 
       'Remove'
     );
   };
@@ -151,7 +147,6 @@ const CartScreen = () => {
       return;
     }
 
-    // I-trigger ang Custom Confirm Modal para sa Checkout
     showAlert(
       'Check Out',
       `Confirm check out for ${selectedItems.length} items?`,
@@ -161,23 +156,32 @@ const CartScreen = () => {
         try {
           const realIdsToCheckout = itemsToValidate.map(item => item.cart_id || item.id || 0);
           const response = await checkout(realIdsToCheckout);
-
+          
           if (response && response.success) {
             loadCart();
             setSelectedItems([]);
-            // Ipakita ang success message tapos mag-navigate DALA ANG DATA
             showAlert('Success', 'Check out successful!', () => {
               closeAlert();
-
-              // THE MAGIC FIX: Nested Navigation Parameter Passing
-              navigation.navigate('Main' as any, {
-                screen: 'QR',
-                params: { ticket: response.data }
-              });
-
+              navigation.navigate('Main' as any, { screen: 'QR', params: { ticket: response.data } });
             });
           } else {
-            showAlert('Error', response?.message || 'Failed to checkout.');
+            const errorMsg = response?.message || 'Failed to checkout.';
+            
+            // DITO ANG MAGIC FIX: Intercepting the Incomplete Profile Error
+            if (errorMsg.toLowerCase().includes('incomplete profile')) {
+              showAlert(
+                'Profile Setup Required',
+                `${errorMsg}\n\nPlease complete your profile information to proceed with borrowing.`,
+                () => {
+                  closeAlert();
+                  navigation.navigate('Settings' as never); // Direct sa SettingsScreen
+                },
+                true, // Pakita ang Cancel button para pwede mag-back out
+                'Go to Settings' // Custom Button text!
+              );
+            } else {
+              showAlert('Error', errorMsg); // Ordinary error modal para sa iba
+            }
           }
         } catch (error) {
           console.error('Checkout error:', error);
@@ -351,30 +355,30 @@ const CartScreen = () => {
         </View>
       </Modal>
 
-      {/* CUSTOM ALERT/CONFIRM MODAL (Universal para sa Web/iOS/Android) */}
+      {/* CUSTOM ALERT/CONFIRM MODAL */}
       <Modal visible={alertConfig.visible} transparent={true} animationType="fade">
         <View className="flex-1 bg-black/50 justify-center items-center p-6">
           <View className="bg-white rounded-2xl p-6 w-full max-w-[340px] shadow-xl">
             <Text className="text-xl font-bold text-slate-900 mb-2">{alertConfig.title}</Text>
             <Text className="text-slate-600 text-base mb-6 leading-6">{alertConfig.message}</Text>
-
+            
             <View className="flex-row justify-end space-x-3">
               {alertConfig.showCancel && (
-                <TouchableOpacity
-                  onPress={closeAlert}
+                <TouchableOpacity 
+                  onPress={closeAlert} 
                   className="px-5 py-2.5 rounded-xl"
                 >
                   <Text className="text-slate-500 font-bold text-base">Cancel</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity
+              <TouchableOpacity 
                 onPress={() => {
                   if (alertConfig.onConfirm) {
                     alertConfig.onConfirm();
                   } else {
                     closeAlert();
                   }
-                }}
+                }} 
                 className="bg-orange-600 px-6 py-2.5 rounded-xl shadow-sm"
               >
                 <Text className="text-white font-bold text-base">{alertConfig.confirmText || 'OK'}</Text>

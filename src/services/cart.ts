@@ -200,8 +200,12 @@ export const checkout = async (cartItemIds: number[]): Promise<CheckoutResponse 
   try {
     const response = await api.post<CheckoutResponse>('/api/cart/checkout', { cart_item_ids: cartItemIds });
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to checkout:', error);
+    // DITO ANG FIX: I-return ang error message mula sa Laravel para mabasa ng CartScreen
+    if (error.response && error.response.data) {
+      return error.response.data;
+    }
     return null;
   }
 };
