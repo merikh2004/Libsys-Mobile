@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -24,9 +25,7 @@ import {
   fetchCourses,
   fetchProfile,
   ProfileData,
-  updateProfile,
-  uploadProfilePicture,
-  uploadRegistrationForm
+  updateProfile
 } from '../services/profile';
 
 const SettingsScreen = () => {
@@ -38,6 +37,10 @@ const SettingsScreen = () => {
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState<Partial<ProfileData>>({});
   
+  // DRAFT STATES PARA SA FILES (Hindi ipapasa hangga't walang "Save Changes")
+  const [pendingProfilePic, setPendingProfilePic] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [pendingRegForm, setPendingRegForm] = useState<File | null>(null);
+  
   const [courses, setCourses] = useState<Course[]>([]);
   const [colleges, setColleges] = useState<College[]>([]);
 
@@ -47,6 +50,8 @@ const SettingsScreen = () => {
       if (response.success) {
         setProfile(response.data);
         setFormData(response.data);
+        setPendingProfilePic(null); // I-reset ang drafts kapag nag-load uli
+        setPendingRegForm(null);
       }
     } catch (error) {
       console.error('Failed to load profile:', error);
@@ -83,6 +88,49 @@ const SettingsScreen = () => {
   const isFaculty = profile?.role === 'faculty' || profile?.role === 'staff';
   const canEdit = isFaculty || profile?.can_edit_profile === 1;
 
+  // KAPAG PUMILI NG PICTURE, I-SAVE LANG SA STATE (Preview mode)
+  const pickImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (permissionResult.granted === false) {
+      showToast("You've refused to allow this app to access your photos!", "warning");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setPendingProfilePic(result.assets[0]);
+      setIsEditing(true); // Buksan ang Edit mode para lumabas ang Save button
+    }
+  };
+
+  // KAPAG PUMILI NG PDF, I-SAVE LANG SA STATE (Preview mode)
+  const triggerDocumentUpload = () => {
+    if (Platform.OS !== 'web') {
+      showToast('Document upload is only supported on web for now', 'info');
+      return;
+    }
+    
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf';
+    input.onchange = (e: any) => {
+      const file = e.target?.files?.[0];
+      if (file) {
+        setPendingRegForm(file);
+        setIsEditing(true); // Buksan ang Edit mode para lumabas ang Save button
+      }
+    };
+    input.click();
+  };
+
+  // ITO ANG BUBUTAS SA SERVER MO KAPAG PININDOT ANG "SAVE CHANGES"
   const handleUpdateProfile = async () => {
     const requiredFields: (keyof ProfileData)[] = isFaculty 
       ? ['first_name', 'last_name', 'contact', 'college_id']
@@ -96,7 +144,6 @@ const SettingsScreen = () => {
       return;
     }
 
-    // Validation bago mag-save (Kung mali ang format ng phone number)
     const contact = formData.contact || '';
     const isContactValid = 
       (contact.startsWith('09') && contact.length === 11) || 
@@ -110,60 +157,62 @@ const SettingsScreen = () => {
 
     setSubmitting(true);
     try {
-      const response = await updateProfile(formData);
-      if (response.success) {
-        setProfile(response.data);
-        setIsEditing(false);
-        showToast('Profile updated successfully', 'success');
-      }
-    } catch (error) {
-      console.error('Failed to update profile:', error);
-      showToast('Failed to update profile', 'error');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+      const submitData = new FormData();
 
-  const handleFileChange = async (event: any, type: 'picture' | 'document') => {
-    const file = event.target?.files?.[0];
-    if (!file) return;
+      // 1. Isama lahat ng text fields
+      Object.keys(formData).forEach((key) => {
+        if (formData[key] !== null && formData[key] !== undefined && key !== 'profile_picture' && key !== 'registration_form') {
+          submitData.append(key, String(formData[key]));
+        }
+      });
 
-    const data = new FormData();
-    data.append(type === 'picture' ? 'profile_picture' : 'registration_form', file);
-
-    setSubmitting(true);
-    try {
-      let response;
-      if (type === 'picture') {
-        response = await uploadProfilePicture(data);
-      } else {
-        response = await uploadRegistrationForm(data);
+      // 2. Isama ang Profile Picture KUNG MAY BAGO (Converted to actual File/Blob for Laravel Validation)
+      if (pendingProfilePic) {
+        if (Platform.OS === 'web') {
+          const res = await fetch(pendingProfilePic.uri);
+          const blob = await res.blob();
+          submitData.append('profile_picture', blob, 'profile.jpg');
+        } else {
+          const filename = pendingProfilePic.uri.split('/').pop() || 'profile.jpg';
+          const match = /\.(\w+)$/.exec(filename);
+          const type = match ? `image/${match[1]}` : `image/jpeg`;
+          submitData.append('profile_picture', {
+            uri: pendingProfilePic.uri,
+            name: filename,
+            type,
+          } as any);
+        }
       }
 
+      // 3. Isama ang Registration Form KUNG MAY BAGO (As an actual File object)
+      if (pendingRegForm && Platform.OS === 'web') {
+        submitData.append('registration_form', pendingRegForm);
+      }
+
+      // 4. IPADALA LAHAT SA ISANG API CALL!
+      const response = await updateProfile(submitData);
+      
       if (response.success) {
         setProfile(response.data);
         setFormData(response.data);
-        showToast(`${type === 'picture' ? 'Profile picture' : 'Registration form'} uploaded successfully`, 'success');
+        setPendingProfilePic(null);
+        setPendingRegForm(null);
+        setIsEditing(false);
+        showToast('Profile updated successfully', 'success');
       }
-    } catch (error) {
-      console.error(`Failed to upload ${type}:`, error);
-      showToast(`Failed to upload ${type}`, 'error');
+    } catch (error: any) {
+      console.error('Failed to update profile:', error?.response?.data || error.message);
+      
+      // Kung ibinato ulit ni Laravel na may mali sa validation, ididisplay natin
+      if (error?.response?.data?.errors) {
+        const errorMessages = Object.values(error.response.data.errors).flat().join('\n');
+        showToast(errorMessages, 'error');
+      } else {
+        showToast('Failed to update profile', 'error');
+      }
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const triggerFileUpload = (type: 'picture' | 'document') => {
-    if (Platform.OS !== 'web') {
-      showToast('File upload is only supported on web for now', 'info');
-      return;
-    }
-    
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = type === 'picture' ? 'image/*' : '.pdf';
-    input.onchange = (e) => handleFileChange(e, type);
-    input.click();
   };
 
   const getFullProfilePictureUrl = (path: string | null) => {
@@ -172,37 +221,36 @@ const SettingsScreen = () => {
     return `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
   };
 
-  // CUSTOM HANDLER PARA SA MGA SPECIFIC INPUT RESTRICTIONS
+  // Preview Logic Helpers
+  const displayProfilePicture = pendingProfilePic?.uri 
+    ? pendingProfilePic.uri 
+    : getFullProfilePictureUrl(profile?.profile_picture || null);
+
+  const displayRegFormName = pendingRegForm?.name 
+    ? pendingRegForm.name 
+    : (profile?.registration_form ? profile.registration_form.split('/').pop() : 'No file uploaded. Upload PDF only.');
+
   const handleInputChange = (field: keyof ProfileData, text: string) => {
     let formattedText = text;
-
     if (field === 'year_level') {
-      // Numbers only, 1 digit max
       formattedText = text.replace(/[^0-9]/g, '').substring(0, 1);
     } 
     else if (field === 'section') {
-      // Letters only, uppercase, 1 char max
       formattedText = text.replace(/[^a-zA-Z]/g, '').toUpperCase().substring(0, 1);
     } 
     else if (field === 'contact') {
-      // Phone number formatting
-      // Papayagan ang '+', tapos digits lang
       formattedText = text.replace(/[^\d+]/g, '');
-
-      // Limit based on starting string
       if (formattedText.startsWith('+63')) {
-        formattedText = formattedText.substring(0, 13); // +639123456789
+        formattedText = formattedText.substring(0, 13);
       } else if (formattedText.startsWith('63')) {
-        formattedText = formattedText.substring(0, 12); // 639123456789
+        formattedText = formattedText.substring(0, 12);
       } else if (formattedText.startsWith('09')) {
-        formattedText = formattedText.substring(0, 11); // 09123456789
+        formattedText = formattedText.substring(0, 11);
       } else if (formattedText.length > 0 && !formattedText.startsWith('+') && !formattedText.startsWith('6') && !formattedText.startsWith('0')) {
-          // Kung nagsimula sa ibang number, puwersahin gawing 09 muna (optional UX rule)
           formattedText = '09' + formattedText.replace(/[^0-9]/g, '');
           formattedText = formattedText.substring(0, 11);
       }
     }
-
     setFormData({ ...formData, [field]: formattedText });
   };
 
@@ -217,7 +265,7 @@ const SettingsScreen = () => {
           isEditing ? 'bg-white border-orange-100 text-slate-900' : 'bg-slate-50 border-slate-100 text-slate-500'
         }`}
         value={String(formData[field] || '')}
-        onChangeText={(text) => handleInputChange(field, text)} // Ginamit ang custom handler
+        onChangeText={(text) => handleInputChange(field, text)}
         editable={isEditing}
         placeholder={`Enter ${label.toLowerCase()}`}
         keyboardType={keyboardType}
@@ -324,7 +372,6 @@ const SettingsScreen = () => {
               <Text className="text-slate-500 text-base">Manage your account information and view your activity</Text>
             </View>
 
-            {/* Profile Card */}
             <View className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8 items-center">
               <View className="flex-row items-center self-start mb-6">
                 <Ionicons name="person-circle-outline" size={20} color="#334155" />
@@ -333,9 +380,9 @@ const SettingsScreen = () => {
 
               <View className="relative mb-6">
                 <View className="w-32 h-32 rounded-full bg-emerald-500 items-center justify-center overflow-hidden border-4 border-white shadow-lg">
-                  {profile?.profile_picture ? (
+                  {displayProfilePicture ? (
                     <Image 
-                      source={{ uri: getFullProfilePictureUrl(profile.profile_picture) }}
+                      source={{ uri: displayProfilePicture }}
                       style={{ width: '100%', height: '100%' }}
                     />
                   ) : (
@@ -344,7 +391,7 @@ const SettingsScreen = () => {
                 </View>
                 {canEdit && (
                   <TouchableOpacity 
-                    onPress={() => triggerFileUpload('picture')}
+                    onPress={pickImage}
                     className="absolute bottom-0 right-0 bg-orange-500 w-10 h-10 rounded-full items-center justify-center border-2 border-white shadow-sm"
                   >
                     <Ionicons name="camera" size={20} color="white" />
@@ -362,7 +409,6 @@ const SettingsScreen = () => {
               </View>
             </View>
 
-            {/* Basic Info */}
             <View className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8">
               <View className="flex-row justify-between items-center mb-6">
                 <View className="flex-row items-center">
@@ -391,7 +437,6 @@ const SettingsScreen = () => {
               {renderInput('Suffix', 'suffix')}
             </View>
 
-            {/* Student/Faculty Details */}
             <View className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8">
               <View className="flex-row items-center mb-6">
                 <Ionicons name={isFaculty ? "briefcase-outline" : "school-outline"} size={20} color="#334155" />
@@ -420,7 +465,6 @@ const SettingsScreen = () => {
               {renderInput('Contact', 'contact', 'phone-pad', true)}
             </View>
 
-            {/* Registration Docs (Students Only) */}
             {!isFaculty && (
               <View className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-4">
                 <View className="flex-row items-center mb-6">
@@ -428,7 +472,7 @@ const SettingsScreen = () => {
                   <Text className="text-xl font-bold text-slate-800 ml-2">Registration Documents</Text>
                 </View>
                 <TouchableOpacity 
-                  onPress={() => triggerFileUpload('document')}
+                  onPress={triggerDocumentUpload}
                   disabled={!canEdit}
                   className="rounded-2xl p-6 border-2 border-dashed border-slate-100 bg-slate-50 flex-row items-center"
                 >
@@ -437,8 +481,9 @@ const SettingsScreen = () => {
                   </View>
                   <View className="ml-4 flex-1">
                     <Text className="text-slate-900 font-bold text-base">Registration Form</Text>
+                    {/* Bago: Ipapakita ang pangalan ng draft file */}
                     <Text className="text-slate-500 text-xs mt-1">
-                      {profile?.registration_form ? profile.registration_form.split('/').pop() : 'No file uploaded. Upload PDF only.'}
+                      {displayRegFormName}
                     </Text>
                   </View>
                   {canEdit && (
@@ -448,7 +493,6 @@ const SettingsScreen = () => {
               </View>
             )}
 
-            {/* Save Button */}
             {isEditing && (
               <TouchableOpacity 
                 onPress={handleUpdateProfile}
@@ -467,12 +511,11 @@ const SettingsScreen = () => {
 
 export default SettingsScreen;
 
-// STYLING PARA SA DROPDOWN PARA MAG-MATCH SA IYONG APP THEME
 const styles = StyleSheet.create({
   dropdown: {
     height: 48,
     backgroundColor: 'white',
-    borderColor: '#ffedd5', // orange-100
+    borderColor: '#ffedd5',
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 16,
@@ -482,11 +525,11 @@ const styles = StyleSheet.create({
   },
   placeholderStyle: {
     fontSize: 14,
-    color: '#94a3b8', // slate-400
+    color: '#94a3b8',
   },
   selectedTextStyle: {
     fontSize: 14,
-    color: '#0f172a', // slate-900
+    color: '#0f172a',
   },
   iconStyle: {
     width: 20,

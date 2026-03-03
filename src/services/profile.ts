@@ -9,7 +9,6 @@ export interface ProfileData {
   email: string | null;
   profile_picture: string | null;
   role: string;
-  // Student specific fields
   student_number?: string;
   course_id?: number;
   year_level?: number;
@@ -19,7 +18,6 @@ export interface ProfileData {
   course_code?: string;
   course_title?: string;
   course_full_name?: string;
-  // Faculty specific fields
   unique_faculty_id?: string;
   college_id?: number;
   status?: string;
@@ -27,7 +25,6 @@ export interface ProfileData {
   college_code?: string;
   college_name?: string;
   college_full_name?: string;
-  // Common fields
   contact: string;
   is_qualified: boolean;
 }
@@ -38,100 +35,48 @@ export interface ProfileResponse {
 }
 
 export interface Course {
-  course_id: number; // FIX: Ginawang course_id base sa JSON mo
+  course_id: number;
   course_code: string;
-  course_title: string; // FIX: Ginawang course_title base sa JSON mo
+  course_title: string;
 }
 
 export interface College {
-  college_id: number; // FIX: Ginawang college_id base sa JSON mo
+  college_id: number;
   college_code: string;
   college_name: string;
 }
 
 export interface CourseResponse {
   success: boolean;
-  courses: Course[]; // FIX: 'courses' ang key sa JSON, hindi 'data'
+  courses: Course[];
 }
 
 export interface CollegeResponse {
   success: boolean;
-  colleges: College[]; // FIX: 'colleges' ang key sa JSON, hindi 'data'
+  colleges: College[];
 }
 
-/**
- * Fetch all courses.
- */
 export const fetchCourses = async (): Promise<CourseResponse> => {
   const response = await api.get<CourseResponse>('/api/courses');
   return response.data;
 };
 
-/**
- * Fetch all colleges.
- */
 export const fetchColleges = async (): Promise<CollegeResponse> => {
   const response = await api.get<CollegeResponse>('/api/colleges');
   return response.data;
 };
 
-/**
- * Fetch the user's profile details from the API.
- * @returns ProfileResponse containing profile data.
- */
 export const fetchProfile = async (): Promise<ProfileResponse> => {
   const response = await api.get<ProfileResponse>('/api/profile');
   return response.data;
 };
 
-/**
- * Update the user's basic profile details.
- * @param data Partial profile data to update.
- * @returns ProfileResponse containing updated profile data.
- */
+// FIX: Ginawa nating FormData ang tinatanggap para pwedeng magpasa ng image file
 export const updateProfile = async (
-  data: Partial<ProfileData>
+  data: FormData | Partial<ProfileData>
 ): Promise<ProfileResponse> => {
-  const response = await api.post<ProfileResponse>('/api/profile/update', data);
-  return response.data;
-};
-
-/**
- * Upload a new profile picture.
- * @param formData FormData containing the image file.
- * @returns ProfileResponse containing updated profile data.
- */
-export const uploadProfilePicture = async (
-  formData: FormData
-): Promise<ProfileResponse> => {
-  const response = await api.post<ProfileResponse>(
-    '/api/profile/upload-picture',
-    formData,
-    {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    }
-  );
-  return response.data;
-};
-
-/**
- * Upload a new registration form PDF.
- * @param formData FormData containing the PDF file.
- * @returns ProfileResponse containing updated profile data.
- */
-export const uploadRegistrationForm = async (
-  formData: FormData
-): Promise<ProfileResponse> => {
-  const response = await api.post<ProfileResponse>(
-    '/api/profile/upload-registration',
-    formData,
-    {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    }
-  );
+  const isFormData = data instanceof FormData;
+  const config = isFormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {};
+  const response = await api.post<ProfileResponse>('/api/profile/update', data, config);
   return response.data;
 };
