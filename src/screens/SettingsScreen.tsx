@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   RefreshControl,
   ScrollView,
@@ -12,7 +13,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,7 +26,7 @@ import {
   fetchCourses,
   fetchProfile,
   ProfileData,
-  updateProfile
+  updateProfile,
 } from '../services/profile';
 
 const SettingsScreen = () => {
@@ -36,11 +37,10 @@ const SettingsScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState<Partial<ProfileData>>({});
-  
-  // DRAFT STATES PARA SA FILES (Hindi ipapasa hangga't walang "Save Changes")
-  const [pendingProfilePic, setPendingProfilePic] = useState<ImagePicker.ImagePickerAsset | null>(null);
+
+  const [pendingProfilePic, setPendingProfilePic] = useState<{ uri: string } | null>(null);
   const [pendingRegForm, setPendingRegForm] = useState<File | null>(null);
-  
+
   const [courses, setCourses] = useState<Course[]>([]);
   const [colleges, setColleges] = useState<College[]>([]);
 
@@ -50,7 +50,7 @@ const SettingsScreen = () => {
       if (response.success) {
         setProfile(response.data);
         setFormData(response.data);
-        setPendingProfilePic(null); // I-reset ang drafts kapag nag-load uli
+        setPendingProfilePic(null);
         setPendingRegForm(null);
       }
     } catch (error) {
@@ -66,7 +66,7 @@ const SettingsScreen = () => {
     try {
       const [coursesRes, collegesRes] = await Promise.all([
         fetchCourses(),
-        fetchColleges()
+        fetchColleges(),
       ]);
       if (coursesRes.success && coursesRes.courses) setCourses(coursesRes.courses);
       if (collegesRes.success && collegesRes.colleges) setColleges(collegesRes.colleges);
@@ -88,12 +88,11 @@ const SettingsScreen = () => {
   const isFaculty = profile?.role === 'faculty' || profile?.role === 'staff';
   const canEdit = isFaculty || profile?.can_edit_profile === 1;
 
-  // KAPAG PUMILI NG PICTURE, I-SAVE LANG SA STATE (Preview mode)
-  const pickImage = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (permissionResult.granted === false) {
-      showToast("You've refused to allow this app to access your photos!", "warning");
+  const pickImageFromGallery = async () => {
+    const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!granted) {
+      showToast("Access to photos is required!", "warning");
       return;
     }
 
@@ -105,18 +104,17 @@ const SettingsScreen = () => {
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      setPendingProfilePic(result.assets[0]);
-      setIsEditing(true); // Buksan ang Edit mode para lumabas ang Save button
+      setPendingProfilePic({ uri: result.assets[0].uri });
+      setIsEditing(true);
     }
   };
 
-  // KAPAG PUMILI NG PDF, I-SAVE LANG SA STATE (Preview mode)
   const triggerDocumentUpload = () => {
     if (Platform.OS !== 'web') {
       showToast('Document upload is only supported on web for now', 'info');
       return;
     }
-    
+
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.pdf';
@@ -124,18 +122,64 @@ const SettingsScreen = () => {
       const file = e.target?.files?.[0];
       if (file) {
         setPendingRegForm(file);
-        setIsEditing(true); // Buksan ang Edit mode para lumabas ang Save button
+        setIsEditing(true);
       }
     };
     input.click();
   };
 
-  // ITO ANG BUBUTAS SA SERVER MO KAPAG PININDOT ANG "SAVE CHANGES"
+  const removePendingRegForm = () => {
+    setPendingRegForm(null);
+  };
+
+  // ==========================================
+  // UNIVERSAL ASSET URL HANDLER
+  // ==========================================
+  const getAssetUrl = (path: string | null | undefined) => {
+    if (!path) return null;
+    if (path.startsWith('http')) return path;
+    
+    // Tanggalin ang windows backslash
+    let cleanPath = path.replace(/\\/g, '/');
+    
+    // Siguraduhing may "storage/" sa unahan
+    if (!cleanPath.startsWith('storage/') && !cleanPath.includes('/storage/')) {
+      cleanPath = `storage/${cleanPath}`; 
+    }
+
+    // Kung ang BASE_URL mo ay may "/api" sa dulo, tatanggalin natin para tama ang image path
+    const serverUrl = BASE_URL.replace(/\/api\/?$/, '');
+
+    return `${serverUrl}${cleanPath.startsWith('/') ? '' : '/'}${cleanPath}`;
+  };
+
+  const viewSavedRegForm = () => {
+    if (pendingRegForm && Platform.OS === 'web') {
+      try {
+        const objectUrl = URL.createObjectURL(pendingRegForm);
+        window.open(objectUrl, '_blank');
+        return;
+      } catch (err) {
+        console.error("Error creating object URL for draft:", err);
+        showToast('Could not preview the draft file.', 'error');
+      }
+    }
+    else if (profile?.registration_form) {
+      const url = getAssetUrl(profile.registration_form);
+      if (url) {
+        Linking.openURL(url).catch((err) => {
+          console.error("Couldn't load page", err);
+          showToast('Could not open the file.', 'error');
+        });
+      }
+    }
+  };
+
   const handleUpdateProfile = async () => {
-    const requiredFields: (keyof ProfileData)[] = isFaculty 
+    const requiredFields: (keyof ProfileData)[] = isFaculty
       ? ['first_name', 'last_name', 'contact', 'college_id']
       : ['first_name', 'last_name', 'email', 'contact', 'section', 'course_id'];
-      
+
     const missingFields = requiredFields.filter(field => !formData[field]);
 
     if (missingFields.length > 0) {
@@ -145,8 +189,8 @@ const SettingsScreen = () => {
     }
 
     const contact = formData.contact || '';
-    const isContactValid = 
-      (contact.startsWith('09') && contact.length === 11) || 
+    const isContactValid =
+      (contact.startsWith('09') && contact.length === 11) ||
       (contact.startsWith('+639') && contact.length === 13) ||
       (contact.startsWith('639') && contact.length === 12);
 
@@ -159,23 +203,55 @@ const SettingsScreen = () => {
     try {
       const submitData = new FormData();
 
-      // 1. Isama lahat ng text fields
       Object.keys(formData).forEach((key) => {
         if (formData[key] !== null && formData[key] !== undefined && key !== 'profile_picture' && key !== 'registration_form') {
           submitData.append(key, String(formData[key]));
         }
       });
 
-      // 2. Isama ang Profile Picture KUNG MAY BAGO (Converted to actual File/Blob for Laravel Validation)
       if (pendingProfilePic) {
         if (Platform.OS === 'web') {
-          const res = await fetch(pendingProfilePic.uri);
-          const blob = await res.blob();
-          submitData.append('profile_picture', blob, 'profile.jpg');
+          try {
+            const res = await fetch(pendingProfilePic.uri);
+            const blob = await res.blob();
+
+            const jpegFile: File = await new Promise((resolve, reject) => {
+              const img = document.createElement('img');
+              img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                  ctx.fillStyle = '#FFFFFF';
+                  ctx.fillRect(0, 0, canvas.width, canvas.height);
+                  ctx.drawImage(img, 0, 0);
+                }
+
+                canvas.toBlob((newBlob) => {
+                  if (newBlob) {
+                    resolve(new File([newBlob], 'profile.jpg', { type: 'image/jpeg' }));
+                  } else {
+                    reject(new Error('Canvas toBlob failed'));
+                  }
+                }, 'image/jpeg', 0.9);
+              };
+              img.onerror = () => reject(new Error('Image load failed'));
+              img.src = URL.createObjectURL(blob);
+            });
+
+            submitData.append('profile_picture', jpegFile);
+          } catch (e) {
+            console.error("Web Image Conversion Error:", e);
+            const res = await fetch(pendingProfilePic.uri);
+            const blob = await res.blob();
+            submitData.append('profile_picture', blob, 'profile.jpg');
+          }
         } else {
           const filename = pendingProfilePic.uri.split('/').pop() || 'profile.jpg';
           const match = /\.(\w+)$/.exec(filename);
           const type = match ? `image/${match[1]}` : `image/jpeg`;
+
           submitData.append('profile_picture', {
             uri: pendingProfilePic.uri,
             name: filename,
@@ -184,26 +260,22 @@ const SettingsScreen = () => {
         }
       }
 
-      // 3. Isama ang Registration Form KUNG MAY BAGO (As an actual File object)
       if (pendingRegForm && Platform.OS === 'web') {
         submitData.append('registration_form', pendingRegForm);
       }
 
-      // 4. IPADALA LAHAT SA ISANG API CALL!
       const response = await updateProfile(submitData);
-      
-      if (response.success) {
-        setProfile(response.data);
-        setFormData(response.data);
+
+      if (response.success || response.message === "Profile updated successfully.") {
+        setIsEditing(false);
         setPendingProfilePic(null);
         setPendingRegForm(null);
-        setIsEditing(false);
+
         showToast('Profile updated successfully', 'success');
+        await loadProfile();
       }
     } catch (error: any) {
       console.error('Failed to update profile:', error?.response?.data || error.message);
-      
-      // Kung ibinato ulit ni Laravel na may mali sa validation, ididisplay natin
       if (error?.response?.data?.errors) {
         const errorMessages = Object.values(error.response.data.errors).flat().join('\n');
         showToast(errorMessages, 'error');
@@ -215,29 +287,20 @@ const SettingsScreen = () => {
     }
   };
 
-  const getFullProfilePictureUrl = (path: string | null) => {
-    if (!path) return null;
-    if (path.startsWith('http')) return path;
-    return `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
-  };
-
-  // Preview Logic Helpers
-  const displayProfilePicture = pendingProfilePic?.uri 
-    ? pendingProfilePic.uri 
-    : getFullProfilePictureUrl(profile?.profile_picture || null);
-
-  const displayRegFormName = pendingRegForm?.name 
-    ? pendingRegForm.name 
-    : (profile?.registration_form ? profile.registration_form.split('/').pop() : 'No file uploaded. Upload PDF only.');
+  const displayPic = pendingProfilePic?.uri || getAssetUrl(profile?.profile_picture);
+  
+  const displayRegFormName = pendingRegForm?.name
+    ? pendingRegForm.name
+    : (profile?.registration_form ? profile.registration_form.replace(/\\/g, '/').split('/').pop() : 'No file uploaded. Upload PDF only.');
 
   const handleInputChange = (field: keyof ProfileData, text: string) => {
     let formattedText = text;
     if (field === 'year_level') {
       formattedText = text.replace(/[^0-9]/g, '').substring(0, 1);
-    } 
+    }
     else if (field === 'section') {
       formattedText = text.replace(/[^a-zA-Z]/g, '').toUpperCase().substring(0, 1);
-    } 
+    }
     else if (field === 'contact') {
       formattedText = text.replace(/[^\d+]/g, '');
       if (formattedText.startsWith('+63')) {
@@ -247,8 +310,8 @@ const SettingsScreen = () => {
       } else if (formattedText.startsWith('09')) {
         formattedText = formattedText.substring(0, 11);
       } else if (formattedText.length > 0 && !formattedText.startsWith('+') && !formattedText.startsWith('6') && !formattedText.startsWith('0')) {
-          formattedText = '09' + formattedText.replace(/[^0-9]/g, '');
-          formattedText = formattedText.substring(0, 11);
+        formattedText = '09' + formattedText.replace(/[^0-9]/g, '');
+        formattedText = formattedText.substring(0, 11);
       }
     }
     setFormData({ ...formData, [field]: formattedText });
@@ -261,9 +324,8 @@ const SettingsScreen = () => {
         {isRequired && <Text className="text-red-500 ml-1">*</Text>}
       </View>
       <TextInput
-        className={`w-full px-4 py-3 rounded-xl border ${
-          isEditing ? 'bg-white border-orange-100 text-slate-900' : 'bg-slate-50 border-slate-100 text-slate-500'
-        }`}
+        className={`w-full px-4 py-3 rounded-xl border ${isEditing ? 'bg-white border-orange-100 text-slate-900' : 'bg-slate-50 border-slate-100 text-slate-500'
+          }`}
         value={String(formData[field] || '')}
         onChangeText={(text) => handleInputChange(field, text)}
         editable={isEditing}
@@ -277,20 +339,20 @@ const SettingsScreen = () => {
     const label = isFaculty ? 'College' : 'Course';
     const isRequired = true;
 
-    const data = isFaculty 
-      ? (colleges || []).map(c => ({ 
-          label: c.college_name || c.college_code, 
-          value: c.college_id 
-        })) 
-      : (courses || []).map(c => ({ 
-          label: c.course_title || c.course_code, 
-          value: c.course_id 
-        }));
+    const data = isFaculty
+      ? (colleges || []).map(c => ({
+        label: c.college_name || c.college_code,
+        value: c.college_id
+      }))
+      : (courses || []).map(c => ({
+        label: c.course_title || c.course_code,
+        value: c.course_id
+      }));
 
     const currentValue = isFaculty ? formData.college_id : formData.course_id;
 
-    const displayValue = isFaculty 
-      ? colleges.find(c => c.college_id === profile?.college_id)?.college_name || profile?.college_name || 'N/A' 
+    const displayValue = isFaculty
+      ? colleges.find(c => c.college_id === profile?.college_id)?.college_name || profile?.college_name || 'N/A'
       : courses.find(c => c.course_id === profile?.course_id)?.course_title || profile?.course_title || 'N/A';
 
     return (
@@ -299,7 +361,7 @@ const SettingsScreen = () => {
           <Text className="text-slate-500 font-medium">{label}</Text>
           {isRequired && <Text className="text-red-500 ml-1">*</Text>}
         </View>
-        
+
         {isEditing ? (
           <Dropdown
             style={styles.dropdown}
@@ -323,11 +385,11 @@ const SettingsScreen = () => {
               }
             }}
             renderLeftIcon={() => (
-              <Ionicons 
-                style={styles.icon} 
-                color="#EA580C" 
-                name={isFaculty ? "business-outline" : "book-outline"} 
-                size={20} 
+              <Ionicons
+                style={styles.icon}
+                color="#EA580C"
+                name={isFaculty ? "business-outline" : "book-outline"}
+                size={20}
               />
             )}
           />
@@ -341,93 +403,57 @@ const SettingsScreen = () => {
     );
   };
 
-  if (loading) {
-    return (
-      <View className="flex-1 bg-[#f8fafc] items-center justify-center">
-        <ActivityIndicator size="large" color="#EA580C" />
-      </View>
-    );
-  }
+  if (loading) return <View className="flex-1 items-center justify-center bg-[#f8fafc]"><ActivityIndicator size="large" color="#EA580C" /></View>;
 
   return (
     <SafeAreaView style={{ flex: 1 }} className="bg-[#f8fafc]" edges={['bottom', 'left', 'right']}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-        enabled={Platform.OS !== 'web'}
-      >
-        <ScrollView 
-          style={{ flex: 1 }}
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            Platform.OS !== 'web' ? (
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#EA580C']} />
-            ) : undefined
-          }
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 100 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#EA580C']} />}
         >
           <View className="p-6">
-            <View className="mb-8 mt-2">
-              <Text className="text-3xl font-bold text-slate-900 mb-2">My Profile</Text>
-              <Text className="text-slate-500 text-base">Manage your account information and view your activity</Text>
-            </View>
+            <Text className="text-3xl font-bold text-slate-900 mb-6">My Profile</Text>
 
+            {/* PROFILE PICTURE SECTION */}
             <View className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8 items-center">
-              <View className="flex-row items-center self-start mb-6">
-                <Ionicons name="person-circle-outline" size={20} color="#334155" />
-                <Text className="text-xl font-bold text-slate-800 ml-2">Profile Information</Text>
-              </View>
-
-              <View className="relative mb-6">
-                <View className="w-32 h-32 rounded-full bg-emerald-500 items-center justify-center overflow-hidden border-4 border-white shadow-lg">
-                  {displayProfilePicture ? (
-                    <Image 
-                      source={{ uri: displayProfilePicture }}
-                      style={{ width: '100%', height: '100%' }}
-                    />
+              <View className="relative mb-4">
+                <View className="w-32 h-32 rounded-full bg-slate-200 border-4 border-white shadow-lg overflow-hidden">
+                  {displayPic ? (
+                    <Image source={{ uri: displayPic }} style={{ width: '100%', height: '100%' }} />
                   ) : (
-                    <Ionicons name="person" size={64} color="white" />
+                    <Ionicons name="person" size={64} color="#94a3b8" style={{ alignSelf: 'center', marginTop: 25 }} />
                   )}
                 </View>
                 {canEdit && (
-                  <TouchableOpacity 
-                    onPress={pickImage}
+                  <TouchableOpacity
+                    onPress={pickImageFromGallery}
                     className="absolute bottom-0 right-0 bg-orange-500 w-10 h-10 rounded-full items-center justify-center border-2 border-white shadow-sm"
                   >
                     <Ionicons name="camera" size={20} color="white" />
                   </TouchableOpacity>
                 )}
               </View>
-
-              <Text className="text-2xl font-bold text-slate-900 text-center uppercase">
-                {profile ? `${profile.first_name} ${profile.last_name}` : 'Loading...'}
+              <Text className="text-xl font-bold text-slate-900 uppercase">
+                {profile?.first_name} {profile?.last_name}
               </Text>
-              <View className="bg-blue-50 px-4 py-1.5 rounded-full mt-2 border border-blue-100">
-                <Text className="text-blue-600 font-bold text-sm">
-                  {isFaculty ? profile?.unique_faculty_id : profile?.student_number || 'N/A'}
-                </Text>
-              </View>
             </View>
 
+            {/* BASIC INFO */}
             <View className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8">
               <View className="flex-row justify-between items-center mb-6">
                 <View className="flex-row items-center">
                   <Ionicons name="person-outline" size={20} color="#334155" />
                   <Text className="text-xl font-bold text-slate-800 ml-2">Basic Information</Text>
                 </View>
-                
+
                 {canEdit && (
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={() => setIsEditing(!isEditing)}
-                    className={`w-10 h-10 items-center justify-center rounded-xl border ${
-                      isEditing ? 'bg-red-50 border-red-100' : 'bg-orange-50 border-orange-100'
-                    }`}
+                    className={`w-10 h-10 items-center justify-center rounded-xl border ${isEditing ? 'bg-red-50 border-red-100' : 'bg-orange-50 border-orange-100'
+                      }`}
                   >
-                    <Ionicons 
-                      name={isEditing ? 'close-outline' : 'create-outline'} 
-                      size={20} 
-                      color={isEditing ? '#ef4444' : '#EA580C'} 
-                    />
+                    <Ionicons name={isEditing ? 'close-outline' : 'create-outline'} size={20} color={isEditing ? '#ef4444' : '#EA580C'} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -437,6 +463,7 @@ const SettingsScreen = () => {
               {renderInput('Suffix', 'suffix')}
             </View>
 
+            {/* DETAILS SECTION */}
             <View className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8">
               <View className="flex-row items-center mb-6">
                 <Ionicons name={isFaculty ? "briefcase-outline" : "school-outline"} size={20} color="#334155" />
@@ -454,7 +481,7 @@ const SettingsScreen = () => {
               </View>
 
               {renderDropdown()}
-              
+
               {!isFaculty && (
                 <View className="flex-row space-x-4">
                   <View style={{ flex: 1 }}>{renderInput('Year', 'year_level', 'numeric', true)}</View>
@@ -465,36 +492,68 @@ const SettingsScreen = () => {
               {renderInput('Contact', 'contact', 'phone-pad', true)}
             </View>
 
+            {/* REGISTRATION DOCUMENTS */}
             {!isFaculty && (
               <View className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-4">
                 <View className="flex-row items-center mb-6">
                   <Ionicons name="folder-outline" size={20} color="#334155" />
                   <Text className="text-xl font-bold text-slate-800 ml-2">Registration Documents</Text>
                 </View>
-                <TouchableOpacity 
-                  onPress={triggerDocumentUpload}
-                  disabled={!canEdit}
-                  className="rounded-2xl p-6 border-2 border-dashed border-slate-100 bg-slate-50 flex-row items-center"
-                >
-                  <View className="bg-white w-12 h-12 rounded-xl items-center justify-center border border-slate-100">
-                    <Ionicons name="document-text" size={24} color="#3b82f6" />
+
+                <View className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-4">
+                  <View className="flex-row items-center mb-4">
+                    <View className="bg-white w-12 h-12 rounded-xl items-center justify-center border border-slate-100 shadow-sm">
+                      <Ionicons name="document-text" size={24} color={pendingRegForm ? "#EA580C" : "#3b82f6"} />
+                    </View>
+                    <View className="ml-4 flex-1">
+                      <Text className="text-slate-900 font-bold text-base">Registration Form</Text>
+                      <Text className="text-slate-500 text-xs mt-1" numberOfLines={1}>
+                        {displayRegFormName}
+                      </Text>
+                      {pendingRegForm && (
+                        <Text className="text-orange-500 text-[10px] font-bold mt-1">Ready to upload (Draft)</Text>
+                      )}
+                    </View>
                   </View>
-                  <View className="ml-4 flex-1">
-                    <Text className="text-slate-900 font-bold text-base">Registration Form</Text>
-                    {/* Bago: Ipapakita ang pangalan ng draft file */}
-                    <Text className="text-slate-500 text-xs mt-1">
-                      {displayRegFormName}
-                    </Text>
+
+                  <View className="flex-row justify-end space-x-2 mt-2 border-t border-slate-200 pt-3">
+
+                    {pendingRegForm && (
+                      <TouchableOpacity
+                        onPress={removePendingRegForm}
+                        className="px-3 py-2 rounded-lg bg-red-50 border border-red-100"
+                      >
+                        <Text className="text-red-500 font-bold text-sm">Remove</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {(pendingRegForm || profile?.registration_form) && (
+                      <TouchableOpacity
+                        onPress={viewSavedRegForm}
+                        className="px-3 py-2 rounded-lg bg-blue-50 border border-blue-100"
+                      >
+                        <Text className="text-blue-600 font-bold text-sm">View</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {canEdit && (
+                      <TouchableOpacity
+                        onPress={triggerDocumentUpload}
+                        className="px-3 py-2 rounded-lg bg-orange-50 border border-orange-100"
+                      >
+                        <Text className="text-orange-600 font-bold text-sm">
+                          {profile?.registration_form || pendingRegForm ? 'Replace' : 'Upload PDF'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+
                   </View>
-                  {canEdit && (
-                    <Ionicons name="cloud-upload-outline" size={20} color="#EA580C" />
-                  )}
-                </TouchableOpacity>
+                </View>
               </View>
             )}
 
             {isEditing && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={handleUpdateProfile}
                 disabled={submitting}
                 className={`w-full bg-orange-600 py-4 rounded-2xl items-center shadow-lg mt-4 ${submitting ? 'opacity-70' : ''}`}
@@ -512,32 +571,10 @@ const SettingsScreen = () => {
 export default SettingsScreen;
 
 const styles = StyleSheet.create({
-  dropdown: {
-    height: 48,
-    backgroundColor: 'white',
-    borderColor: '#ffedd5',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-  },
-  icon: {
-    marginRight: 10,
-  },
-  placeholderStyle: {
-    fontSize: 14,
-    color: '#94a3b8',
-  },
-  selectedTextStyle: {
-    fontSize: 14,
-    color: '#0f172a',
-  },
-  iconStyle: {
-    width: 20,
-    height: 20,
-  },
-  inputSearchStyle: {
-    height: 40,
-    fontSize: 14,
-    borderRadius: 8,
-  },
+  dropdown: { height: 48, backgroundColor: 'white', borderColor: '#ffedd5', borderWidth: 1, borderRadius: 12, paddingHorizontal: 16 },
+  icon: { marginRight: 10 },
+  placeholderStyle: { fontSize: 14, color: '#94a3b8' },
+  selectedTextStyle: { fontSize: 14, color: '#0f172a' },
+  iconStyle: { width: 20, height: 20 },
+  inputSearchStyle: { height: 40, fontSize: 14, borderRadius: 8 },
 });
