@@ -1,19 +1,24 @@
 import { CheckoutData } from '../services/cart';
 
-// If QR is inside your Main Tabs:
+export type AuthStackParamList = {
+  Login: undefined;
+  ForgotPassword: { username?: string };
+  OTPVerification: { username: string; email: string };
+  ResetPassword: { username: string; email: string; reset_token: string }; 
+};
+
 export type MainTabParamList = {
   Home: undefined;
   Catalog: undefined;
-  QR: { ticket?: CheckoutData }; // <--- THIS IS CRITICAL
+  QR: { ticket?: CheckoutData }; 
   Profile: undefined;
 };
 
-// If QR is a global Stack Screen (like Cart):
 export type RootStackParamList = {
   Auth: undefined;
   Main: undefined;
   Cart: undefined;
   Settings: undefined;
   ChangePassword: undefined;
-  QR: { ticket?: CheckoutData }; // <--- Add it here if it's a stack screen
+  QR: { ticket?: CheckoutData }; 
 };

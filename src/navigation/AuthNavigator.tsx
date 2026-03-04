@@ -1,16 +1,21 @@
-// src/navigation/AuthNavigator.tsx
-import { createStackNavigator } from "@react-navigation/stack";
-import React from "react";
-import LoginScreen from "../screens/LoginScreen";
+import { createStackNavigator } from '@react-navigation/stack';
+import React from 'react';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
+import LoginScreen from '../screens/LoginScreen';
+import OTPVerificationScreen from '../screens/OTPVerificationScreen';
+import ResetPasswordScreen from '../screens/ResetPasswordScreen'; // 1. INALIS ANG COMMENT DITO
+import { AuthStackParamList } from './types';
 
-const AuthStack = createStackNavigator();
+const Stack = createStackNavigator<AuthStackParamList>();
 
 const AuthNavigator = () => {
   return (
-    <AuthStack.Navigator screenOptions={{ headerShown: false }}>
-      <AuthStack.Screen name="Login" component={LoginScreen} />
-      {/* Pwede mong idagdag dito ang Register screen sa susunod */}
-    </AuthStack.Navigator>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
+      <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+    </Stack.Navigator>
   );
 };
 

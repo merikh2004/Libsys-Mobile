@@ -1,4 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,8 +13,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useAuth } from '../context/AuthContext'; // 1. I-import ang useAuth
+import { useAuth } from '../context/AuthContext';
+import { AuthStackParamList } from '../navigation/types';
 import { loginUser } from '../services/auth';
+
+type LoginScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'Login'>;
 
 const LoginScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -22,7 +27,7 @@ const LoginScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // 2. Kunin ang login function mula sa context
+  const navigation = useNavigation<LoginScreenNavigationProp>();
   const { login } = useAuth();
 
   const handleLogin = async () => {
@@ -38,19 +43,12 @@ const LoginScreen = () => {
       const result = await loginUser({ identifier, password });
 
       if (result.success) {
-        // 1. I-clear agad ang credentials sa state para mawala sa memory
         setIdentifier('');
         setPassword('');
 
-        // 2. I-check kung Web ang gamit
         if (Platform.OS === 'web') {
-          // 3. HARD REDIRECT: Ginagamit ang replace("/") para mag-force reload.
-          // Dahil ang AuthContext ay nag-che-check ng token sa bootstrap (localStorage),
-          // automatic na magiging logged in ang user pagka-reload nang hindi naiiwan
-          // ang POST request sa Network tab logs.
           window.location.replace('/');
         } else {
-          // Para sa Mobile, normal na context update lang
           login();
         }
       } else {
@@ -78,7 +76,6 @@ const LoginScreen = () => {
           className="w-full"
         >
           <View className="w-full p-6 max-w-md">
-            {/* Logo at Title */}
             <View className="items-center mb-8">
               <View className="w-16 h-16 items-center justify-center mb-8">
                 <Image
@@ -180,9 +177,10 @@ const LoginScreen = () => {
                   <Text className="text-white font-bold text-base">Login</Text>
                 )}
               </TouchableOpacity>
-
-              {/* Forgot Password */}
-              <TouchableOpacity className="items-center py-2 active:opacity-60">
+              <TouchableOpacity 
+                className="items-center py-2 active:opacity-60"
+                onPress={() => navigation.navigate('ForgotPassword')}
+              >
                 <Text className="text-[#EA580C] font-medium text-sm">
                   Forgot Password?
                 </Text>
