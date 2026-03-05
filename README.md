@@ -13,7 +13,8 @@ Follow these steps to get the app running on your machine and your mobile device
 Before you begin, ensure you have the following installed:
 - **Node.js** (LTS version)
 - **npm** or **yarn**
-- **Expo Go** app (Download it from the [Google Play Store](https://play.google.com/store/apps/details?id=host.exp.exponent) or [Apple App Store](https://apps.apple.com/us/app/expo-go/id982107779))
+- **Expo Go** app (Download it from [Google Play](https://play.google.com/store/apps/details?id=host.exp.exponent) or [App Store](https://apps.apple.com/us/app/expo-go/id982107779))
+- **Laravel Backend** (Dapat ay running sa host machine)
 
 ### 2. Installation
 
@@ -29,45 +30,56 @@ Before you begin, ensure you have the following installed:
    ```
 
 3. **Configure Environment Variables:**
-   Rename or create a `.env` file in the root directory and set your API URL.
-   > **Note:** If you are testing on a **physical device**, use your computer's local IP address instead of `127.0.0.1` (e.g., `http://192.168.1.10:8000`).
+   Gumawa ng `.env` file sa root directory. Dahil gagamit tayo ng tunnel para kumonekta sa backend, sundin ang steps sa ibaba.
 
-   ```env
-   API_BASE_URL=http://your-local-ip:8000
-   ```
+---
+
+## 🌐 Connecting to the Backend (Crucial)
+
+Para makapag-login at makakita ng data, kailangan ng "tunnel" dahil madalas ay nagkakaroon ng network blockages sa local Wi-Fi/Firewall.
+
+### Step 1: Run your Laravel Backend
+Sa folder ng iyong Laravel project, i-run ang server:
+```bash
+php artisan serve
+```
+(Siguraduhin na running ito sa port 8000)
+
+### Step 2: Create a Tunnel (API Portal)
+Buksan ang bagong terminal (huwag isara ang Laravel) at i-run ang Localtunnel:
+```bash
+npx localtunnel --port 8000
+```
+I-copy ang URL na ibibigay (e.g., `https://shaggy-dogs-run.loca.lt`).
+
+> **Important:** Buksan muna ang link na ito sa browser ng iyong phone. I-click ang "Click to Continue" para ma-authorize ang connection.
+
+### Step 3: Update Mobile .env
+I-paste ang tunnel URL sa `.env` ng Libsys-Mobile project:
+```env
+API_BASE_URL=https://your-localtunnel-link.loca.lt/api
+```
 
 ---
 
 ## 📱 How to Run the App
 
-Start the Expo development server by running:
+I-start ang Expo development server gamit ang tunnel flag:
 
 ```bash
-npm start
+npx expo start --tunnel -c
 ```
 
-Once the server is running, you'll see a QR code in your terminal. Here’s how to open the app on different platforms:
+Kapag lumabas na ang QR code, i-scan ito gamit ang **Expo Go** app sa iyong phone.
 
-### ⚡ Running on a Physical Device (Recommended)
-This is the easiest way to test the app with real mobile gestures and hardware.
-1. Make sure your phone and computer are on the **same Wi-Fi network**.
-2. **Android:** Open the **Expo Go** app and tap "Scan QR Code".
-3. **iOS:** Open the default **Camera app** and point it at the QR code.
-4. The app will bundle and open automatically!
+---
 
-### 🤖 Running on Android Emulator
-1. Open **Android Studio** and start a Virtual Device (AVD).
-2. Press `a` in the terminal where Expo is running.
-3. The app will install and open on your emulator.
+## ⚠️ Troubleshooting (Network Error / Unreachable)
 
-### 🍎 Running on iOS Simulator (Mac Only)
-1. Ensure you have **Xcode** installed.
-2. Press `i` in the terminal where Expo is running.
-3. The app will open in the iOS Simulator.
-
-### 🌐 Running on Web Browser
-1. Press `w` in the terminal.
-2. The app will open in your default web browser (Chrome/Edge/Safari).
+- **Private DNS:** Sa Android, siguraduhin na ang Private DNS ay naka-OFF (Settings > Network > Private DNS).
+- **Tunnel Password:** Kung manghingi ng "Tunnel Password" ang website, i-enter ang External IP ng iyong PC (Makikita sa [whatsmyip.org](https://whatsmyip.org)).
+- **Stay Active:** Huwag i-close ang terminal ng Laravel at Localtunnel habang ginagamit ang app.
+- **Same Wi-Fi?** Sa method na ito (Localtunnel), hindi na kailangang magka-Wi-Fi ang phone at PC basta parehong may internet.
 
 ---
 
@@ -77,10 +89,10 @@ This is the easiest way to test the app with real mobile gestures and hardware.
 src/
 ├── assets/       # Images, fonts, and static files
 ├── components/   # Reusable UI elements (Buttons, Inputs, etc.)
-├── context/      # Authentication and Global State (AuthContext, ToastContext)
+├── context/      # Authentication and Global State (AuthContext)
 ├── navigation/   # App routing logic (Tab and Stack navigators)
-├── screens/      # Main application pages (Dashboard, Books, QR, etc.)
-├── services/     # API integration and business logic
+├── screens/      # Main application pages (Dashboard, Books, QR)
+├── services/     # API integration (Axios calls)
 └── styles/       # Global CSS and Tailwind configurations
 ```
 
@@ -88,7 +100,7 @@ src/
 
 - **Real-time Attendance**: Scan QR codes for library check-ins.
 - **Book Management**: Browse and manage your library cart.
-- **Secure Auth**: Login and session management via Keychain.
+- **Secure Auth**: Login and session management via Keychain/SecureStore.
 - **Cross-Platform**: Optimized for Android, iOS, and Web.
 
 ---
