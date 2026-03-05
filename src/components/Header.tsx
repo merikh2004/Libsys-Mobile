@@ -53,13 +53,10 @@ const Header = () => {
           </Text>
         </View>
 
-        {/* Right Side: Icons */}
         <View className="flex-row items-center gap-2">
           <TouchableOpacity onPress={() => navigation.navigate('Cart')}>
             <Ionicons name="cart-outline" size={24} color="#334155" />
           </TouchableOpacity>
-          
-          {/* Profile Avatar Button - Initials ONLY */}
           <TouchableOpacity 
             onPress={() => setIsMenuVisible(true)}
             className="w-9 h-9 rounded-full bg-orange-500 items-center justify-center border-2 border-orange-200"
@@ -71,19 +68,16 @@ const Header = () => {
         </View>
       </View>
 
-      {/* Gumamit ng Modal para hindi masira ang layout ng ibang screens */}
       <Modal 
         visible={isMenuVisible} 
         transparent={true} 
         animationType="fade"
         onRequestClose={() => setIsMenuVisible(false)}
       >
-        {/* Background Overlay na Clickable para magsara */}
         <TouchableWithoutFeedback onPress={() => setIsMenuVisible(false)}>
           <View className="flex-1 bg-black/10" /> 
         </TouchableWithoutFeedback>
 
-        {/* Dropdown Menu Container */}
         <View 
           className="absolute top-[80px] right-4 bg-white rounded-2xl p-4 shadow-2xl border border-slate-100 z-50 w-[240px]"
           style={{ 
@@ -94,7 +88,6 @@ const Header = () => {
             shadowRadius: 10,
           }}
         >
-          {/* User Info Header */}
           <View className="flex-row items-center mb-4 border-b border-slate-50 pb-3">
             <View className="w-10 h-10 rounded-full bg-slate-100 items-center justify-center mr-3 border border-slate-200">
               <Text className="text-slate-600 font-bold text-sm">
@@ -111,7 +104,6 @@ const Header = () => {
             </View>
           </View>
 
-          {/* Menu Items */}
           <TouchableOpacity 
             className="flex-row items-center py-2.5 active:bg-slate-50 rounded-lg px-1"
             onPress={() => handleNavigation('Settings')}

@@ -2,14 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Modal,
   ScrollView,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
-// 1. ITO ANG TAMA AT SAFE NA IMPORT PARA SA SAFEAREAVIEW
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -41,7 +41,6 @@ const DetailRow = ({ label, value, bold = false }: { label: string; value?: stri
   );
 };
 
-// 2. WALA NANG useNavigation HOOK. REKTA PROPS NA.
 const CartScreen = ({ navigation }: any) => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -49,16 +48,6 @@ const CartScreen = ({ navigation }: any) => {
 
   const [selectedItemDetails, setSelectedItemDetails] = useState<any | null>(null);
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
-
-  const [alertConfig, setAlertConfig] = useState({
-    visible: false, title: '', message: '', onConfirm: undefined as any, showCancel: false, confirmText: 'OK'
-  });
-
-  const showAlert = (title: string, message: string, onConfirm?: () => void, showCancel = false, confirmText = 'OK') => {
-    setAlertConfig({ visible: true, title, message, onConfirm, showCancel, confirmText });
-  };
-
-  const closeAlert = () => setAlertConfig(prev => ({ ...prev, visible: false }));
 
   const loadCart = async () => {
     try {
@@ -73,8 +62,16 @@ const CartScreen = ({ navigation }: any) => {
   };
 
   useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      loadCart();
+    });
+    
     loadCart();
-  }, []);
+    
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [navigation]);
 
   const toggleSelect = (uniqueKey: string) => {
     setSelectedItems((prev) =>
@@ -90,87 +87,120 @@ const CartScreen = ({ navigation }: any) => {
     }
   };
 
+  // GUMAMIT NA TAYO NG NATIVE ALERT (Wala nang Custom Modal)
   const handleDelete = (idToUse: number | undefined, uniqueKey: string) => {
     if (!idToUse) {
-      showAlert('Error', 'Invalid item ID.');
+      Alert.alert('Error', 'Invalid item ID.');
       return;
     }
-    showAlert('Remove Item', 'Are you sure you want to remove this item?', async () => {
-      closeAlert();
-      setIsLoading(true);
-      const result = await removeFromCart(idToUse);
-      if (result.success) {
-        setCartItems((prev) => prev.filter((item) => (item.cart_id || item.id) !== idToUse));
-        setSelectedItems((prev) => prev.filter((key) => key !== uniqueKey));
-      } else {
-        showAlert('Error', result.message || 'Failed to remove item.');
+    Alert.alert('Remove Item', 'Are you sure you want to remove this item?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          setIsLoading(true);
+          const result = await removeFromCart(idToUse);
+          if (result.success) {
+            setCartItems((prev) => prev.filter((item) => (item.cart_id || item.id) !== idToUse));
+            setSelectedItems((prev) => prev.filter((key) => key !== uniqueKey));
+          } else {
+            Alert.alert('Error', result.message || 'Failed to remove item.');
+          }
+          setIsLoading(false);
+        }
       }
-      setIsLoading(false);
-    }, true, 'Remove');
+    ]);
   };
 
   const handleClearCart = () => {
     if (cartItems.length === 0) return;
-    showAlert('Clear Cart', 'Are you sure you want to clear your entire cart?', async () => {
-      closeAlert();
-      setIsLoading(true);
-      const allCartIds = cartItems.map(item => item.cart_id || item.id || 0).filter(id => id !== 0);
-      const success = await clearCart(allCartIds);
-      if (success) {
-        setCartItems([]);
-        setSelectedItems([]);
-        showAlert('Success', 'Cart has been cleared.');
-      } else {
-        showAlert('Error', 'Failed to clear cart.');
+    Alert.alert('Clear Cart', 'Are you sure you want to clear your entire cart?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Clear All',
+        style: 'destructive',
+        onPress: async () => {
+          setIsLoading(true);
+          const allCartIds = cartItems.map(item => item.cart_id || item.id || 0).filter(id => id !== 0);
+          const success = await clearCart(allCartIds);
+          if (success) {
+            setCartItems([]);
+            setSelectedItems([]);
+            Alert.alert('Success', 'Cart has been cleared.');
+          } else {
+            Alert.alert('Error', 'Failed to clear cart.');
+          }
+          setIsLoading(false);
+        }
       }
-      setIsLoading(false);
-    }, true, 'Clear All');
+    ]);
   };
 
   const handleCheckout = () => {
     if (selectedItems.length === 0) {
-      showAlert('Error', 'Please select at least one item.');
+      Alert.alert('Error', 'Please select at least one item.');
       return;
     }
 
-    const itemsToValidate = cartItems.filter((item, index) => selectedItems.includes(`${item.cart_id || item.id}-${index}`));
+    const itemsToValidate = cartItems.filter((item, index) => {
+      const itemUniqueKey = `${item.cart_id || item.id}-${index}`;
+      return selectedItems.includes(itemUniqueKey);
+    });
+
     const validation = validateCheckoutRules(itemsToValidate);
-    
+
     if (!validation.isValid) {
-      showAlert('Checkout Restricted', validation.message || 'Error');
+      Alert.alert('Checkout Restricted', validation.message || 'Error');
       return;
     }
 
-    showAlert('Check Out', `Confirm check out for ${selectedItems.length} items?`, async () => {
-      closeAlert();
-      setIsLoading(true);
-      try {
-        const realIdsToCheckout = itemsToValidate.map(item => item.cart_id || item.id || 0);
-        const response = await checkout(realIdsToCheckout);
-        if (response && response.success) {
-          loadCart();
-          setSelectedItems([]);
-          showAlert('Success', 'Check out successful!', () => {
-            closeAlert();
-            if (navigation && navigation.navigate) navigation.navigate('Main', { screen: 'QR', params: { ticket: response.data } });
-          });
-        } else {
-          const errorMsg = response?.message || 'Failed to checkout.';
-          if (errorMsg.toLowerCase().includes('incomplete profile')) {
-            showAlert('Profile Setup Required', errorMsg, () => {
-              closeAlert();
-              if (navigation && navigation.navigate) navigation.navigate('Settings');
-            }, true, 'Go to Settings');
-          } else {
-            showAlert('Error', errorMsg);
+    Alert.alert('Check Out', `Confirm check out for ${itemsToValidate.length} items?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Confirm',
+        onPress: async () => {
+          setIsLoading(true);
+          try {
+            const realIdsToCheckout = itemsToValidate.map(item => item.cart_id || item.id || 0).filter(id => id !== 0);
+            const response = await checkout(realIdsToCheckout);
+
+            if (response && response.success) {
+              setSelectedItems([]);
+              await loadCart();
+              
+              Alert.alert('Success', 'Check out successful!', [
+                {
+                  text: 'View Ticket',
+                  onPress: () => {
+                    if (navigation && navigation.navigate) {
+                      navigation.navigate('Main', {
+                        screen: 'QR',
+                        params: { ticket: response.data }
+                      });
+                    }
+                  }
+                }
+              ]);
+            } else {
+              const errorMsg = response?.message || 'Failed to checkout.';
+              if (errorMsg.toLowerCase().includes('profile')) {
+                Alert.alert('Profile Setup Required', errorMsg, [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Go to Settings', onPress: () => navigation?.navigate('Settings') }
+                ]);
+              } else {
+                Alert.alert('Error', errorMsg);
+              }
+            }
+          } catch (error) {
+            Alert.alert('Error', 'An unexpected error occurred.');
+          } finally {
+            setIsLoading(false);
           }
         }
-      } catch (error) {
-        showAlert('Error', 'An unexpected error occurred.');
-      } finally {
-        setIsLoading(false);
       }
-    }, true, 'Confirm');
+    ]);
   };
 
   const openDetailModal = (details: any) => {
@@ -214,7 +244,7 @@ const CartScreen = ({ navigation }: any) => {
               <Text className="text-slate-500 mt-2">Your cart is currently empty.</Text>
             </View>
           ) : (
-            <>
+            <View>
               <View className="bg-white rounded-2xl p-5 mb-8 border border-orange-100 shadow-sm">
                 <View className="flex-row justify-between items-center mb-4">
                   <Text className="text-xl font-bold text-[#3E2723]">Summary</Text>
@@ -267,12 +297,12 @@ const CartScreen = ({ navigation }: any) => {
                   </View>
                 );
               })}
-            </>
+            </View>
           )}
         </View>
       </ScrollView>
 
-      {/* 3. CONDITIONALLY RENDERED MODALS PARA HINDI BUMANGGA SA NAVIGATION PAG EMPTY */}
+      {/* ITEM DETAILS MODAL LAAAAANG ANG NATIRA */}
       {isDetailModalVisible && (
         <Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setIsDetailModalVisible(false)}>
           <View className="flex-1 bg-black/50 justify-center p-6">
@@ -307,31 +337,6 @@ const CartScreen = ({ navigation }: any) => {
               <TouchableOpacity onPress={() => setIsDetailModalVisible(false)} className="mt-8 bg-orange-600 py-3.5 rounded-2xl items-center">
                 <Text className="text-white font-bold text-lg">Close</Text>
               </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-      )}
-
-      {alertConfig.visible && (
-        <Modal visible={true} transparent={true} animationType="fade">
-          <View className="flex-1 bg-black/50 justify-center items-center p-6">
-            <View className="bg-white rounded-2xl p-6 w-full max-w-[340px] shadow-xl">
-              <Text className="text-xl font-bold text-slate-900 mb-2">{alertConfig.title}</Text>
-              <Text className="text-slate-600 text-base mb-6 leading-6">{alertConfig.message}</Text>
-              
-              <View className="flex-row justify-end space-x-3">
-                {alertConfig.showCancel && (
-                  <TouchableOpacity onPress={closeAlert} className="px-5 py-2.5 rounded-xl">
-                    <Text className="text-slate-500 font-bold text-base">Cancel</Text>
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity 
-                  onPress={() => { alertConfig.onConfirm ? alertConfig.onConfirm() : closeAlert(); }} 
-                  className="bg-orange-600 px-6 py-2.5 rounded-xl shadow-sm"
-                >
-                  <Text className="text-white font-bold text-base">{alertConfig.confirmText || 'OK'}</Text>
-                </TouchableOpacity>
-              </View>
             </View>
           </View>
         </Modal>

@@ -1,4 +1,3 @@
-import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import React from 'react';
 import { Platform, View } from 'react-native';
@@ -16,9 +15,7 @@ const AppNavigator = () => {
   const { isLoggedIn } = useAuth();
 
   return (
-    // Magic fix para hindi sumabog ang scroll sa Web
     <View style={{ flex: 1, height: Platform.OS === 'web' ? '100vh' : '100%' }}>
-      <NavigationContainer>
         <Stack.Navigator
           screenOptions={{
             headerStyle: {
@@ -31,7 +28,6 @@ const AppNavigator = () => {
               fontWeight: 'bold',
               color: '#1e293b',
             },
-            // Nagpapasa ng exact boundaries sa mga Screens
             cardStyle: { flex: 1, backgroundColor: '#ffffff' },
           }}
         >
@@ -66,7 +62,6 @@ const AppNavigator = () => {
             />
           )}
         </Stack.Navigator>
-      </NavigationContainer>
     </View>
   );
 };

@@ -3,7 +3,6 @@ import { Book } from './books';
 
 export type ItemType = 'book' | 'equipment';
 
-// FIX: In-update ang CartItem para tumugma sa flat response ng Laravel
 export interface CartItem {
   cart_id: number;
   book_id: number;
@@ -15,7 +14,6 @@ export interface CartItem {
   subject: string | null;
   added_at: string;
   
-  // Fallbacks in case ng lumang format
   id?: number;
   type?: ItemType;
   item_id?: number;
@@ -89,15 +87,12 @@ export const removeFromCart = async (cartItemId: number): Promise<{ success: boo
   }
 };
 
-// FIX: Inayos ang key name na hinihingi ng Laravel (cart_ids imbes na cart_item_ids)
 export const clearCart = async (cartItemIds?: number[]): Promise<boolean> => {
   try {
-    // Ipasa ang array gamit ang eksaktong pangalan na "cart_ids"
     const payload = cartItemIds && cartItemIds.length > 0 
       ? { cart_ids: cartItemIds } 
-      : { cart_ids: [] }; // Fallback para hindi mag-error na "required" kung sakaling walang laman
+      : { cart_ids: [] }; 
 
-    // Gagamitin ang POST endpoint
     const response = await api.post('/api/cart/bulkDelete', payload);
     
     return response.data && response.data.success;
@@ -137,7 +132,7 @@ export const addToCart = async (book: any): Promise<{ success: boolean; message?
 
 export const checkout = async (cartItemIds: number[]): Promise<CheckoutResponse | null> => {
   try {
-    const response = await api.post<CheckoutResponse>('/api/cart/checkout', { cart_item_ids: cartItemIds });
+    const response = await api.post<CheckoutResponse>('/api/cart/checkout', { cart_ids: cartItemIds });
     return response.data;
   } catch (error: any) {
     if (error.response && error.response.data) return error.response.data;
@@ -145,7 +140,6 @@ export const checkout = async (cartItemIds: number[]): Promise<CheckoutResponse 
   }
 };
 
-// FIX: Mas matalinong validation para maiwasang mag-error kapag kulang o mali ang ipinasa
 export const validateCheckoutRules = (selectedItems: any[]): { isValid: boolean; message?: string } => {
   if (selectedItems.length === 0) {
     return { isValid: false, message: 'Please select at least one item to check out.' };
@@ -157,13 +151,11 @@ export const validateCheckoutRules = (selectedItems: any[]): { isValid: boolean;
   }
 
   const invalidItems = selectedItems.filter(item => {
-    // Kung puro IDs (numbers/strings) lang ang pinasa imbes na mismong Book object
     if (typeof item === 'number' || typeof item === 'string') {
       console.error("MALI ANG PINASA SA VALIDATION: IDs ang pinasa imbes na buong object ng cart.");
       return true; 
     }
 
-    // Suportado ang new flat response (item) at ang old nested format (item.item_details)
     const details = item.item_details || item;
     return !details.accession_number;
   });

@@ -1,5 +1,5 @@
+import { NavigationContainer } from "@react-navigation/native";
 import React from "react";
-import { View } from "react-native";
 import "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "./src/context/AuthContext";
@@ -10,13 +10,13 @@ import "./src/styles/global.css";
 export default function App() {
   return (
     <SafeAreaProvider>
-      <View style={{ flex: 1 }}>
-        <AuthProvider>
-          <ToastProvider>
+      <AuthProvider>
+        <ToastProvider>
+          <NavigationContainer>
             <AppNavigator />
-          </ToastProvider>
-        </AuthProvider>
-      </View>
+          </NavigationContainer>
+        </ToastProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

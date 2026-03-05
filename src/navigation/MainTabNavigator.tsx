@@ -1,10 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import React from 'react';
-import { useSafeAreaInsets } from 'react-native-safe-area-context'; // Import insets
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 
-// Import all the screens for the tabs
 import AttendanceScreen from '../screens/AttendanceScreen';
 import BooksScreen from '../screens/BooksScreen';
 import DashboardScreen from '../screens/DashboardScreen';
@@ -15,7 +14,7 @@ const Tab = createBottomTabNavigator();
 
 const MainTabNavigator = () => {
   const { user } = useAuth();
-  const insets = useSafeAreaInsets(); // Kukuha ng sukat ng navigation bar ng phone
+  const insets = useSafeAreaInsets(); 
   const isStudent = user?.role === 'student';
 
   return (
