@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { RouteProp, useFocusEffect, useRoute } from '@react-navigation/native'; // FIX: Idinagdag ang useFocusEffect
-import React, { useCallback, useState } from 'react'; // FIX: Idinagdag ang useCallback
+import { RouteProp, useFocusEffect, useRoute } from '@react-navigation/native';
+import React, { useCallback, useRef, useState } from 'react'; // FIX: Idinagdag ang useRef
 import {
   ActivityIndicator,
   ScrollView,
@@ -26,13 +26,24 @@ const QRScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTicket, setActiveTicket] = useState<CheckoutData | null>(null);
 
-  // FIX: Pinalitan ng useFocusEffect para laging mag-update kapag binuksan ang QR Tab
+  // FIX: Gagamit tayo ng ref para ma-track kung may active ticket ba previously
+  // nang hindi nag-ti-trigger ng unnecessary re-renders.
+  const prevTicketRef = useRef<CheckoutData | null>(null);
+
   useFocusEffect(
     useCallback(() => {
       let isMounted = true;
       let timeoutId: NodeJS.Timeout;
 
-      // Ito ang function na kukuha ng ticket at mag-che-check kung na-scan na
+      // FAST DISPLAY: Kung may ipinasa galing Cart Checkout, i-display agad para mabilis
+      if (route.params?.ticket && route.params.ticket.transaction_code) {
+        setActiveTicket(route.params.ticket);
+        prevTicketRef.current = route.params.ticket; // Update ref
+        setIsLoading(false);
+      } else if (!activeTicket) {
+        setIsLoading(true);
+      }
+
       const checkTicketStatus = async () => {
         try {
           const ticketData = await fetchActiveTicket();
@@ -43,22 +54,25 @@ const QRScreen = () => {
             
             // KUNG HINDI NA PENDING (Ibig sabihin, na-scan na ng librarian)
             if (currentStatus && currentStatus !== 'pending') {
-              setActiveTicket(null); // I-clear ang QR at Books
-              showToast('Ticket successfully scanned and processed!', 'success'); // I-notify ang user
+              setActiveTicket(null);
+              prevTicketRef.current = null; // Clear ref
+              showToast('Ticket successfully scanned and processed!', 'success');
             } else {
-              // KUNG PENDING PA RIN: I-display ang ticket at i-check ulit after 3 seconds
+              // KUNG PENDING PA RIN: I-display ang ticket at i-check ulit
               setActiveTicket(ticketData);
+              prevTicketRef.current = ticketData; // Update ref
               timeoutId = setTimeout(checkTicketStatus, 3000);
             }
           } else {
-            // KUNG WALA NANG DATA GALING SA SERVER (Nai-delete na or finished)
-            setActiveTicket((prevTicket) => {
-              if (prevTicket !== null) {
-                // Kung may ticket kanina tapos biglang nawala, ibig sabihin na-process na!
-                showToast('Ticket successfully scanned and processed!', 'success');
-              }
-              return null;
-            });
+            // KUNG WALA NANG DATA GALING SA SERVER
+            
+            // FIX: I-check ang previous state gamit ang ref sa labas ng setState
+            if (prevTicketRef.current !== null) {
+              showToast('Ticket successfully scanned and processed!', 'success');
+            }
+            
+            setActiveTicket(null);
+            prevTicketRef.current = null; // I-reset ang ref
           }
         } catch (error) {
           // Kung mahina internet, wag sumuko, check ulit after 3 seconds
@@ -68,23 +82,15 @@ const QRScreen = () => {
         }
       };
 
-      // FAST DISPLAY: Kung may ipinasa galing Cart Checkout, i-display agad para mabilis
-      if (route.params?.ticket && route.params.ticket.transaction_code) {
-        setActiveTicket(route.params.ticket);
-        setIsLoading(false);
-      } else if (!activeTicket) {
-        setIsLoading(true);
-      }
-
       // Simulan agad ang pag-check
       checkTicketStatus();
 
-      // CLEANUP: Patayin ang timer kapag lumipat ng ibang tab ang user para tipid sa battery
+      // CLEANUP
       return () => {
         isMounted = false;
         clearTimeout(timeoutId);
       };
-    }, [route.params?.ticket])
+    }, [route.params?.ticket, showToast]) // FIX: Idinagdag ang showToast sa dependencies
   );
 
   if (isLoading) {

@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import React from 'react';
-import { useAuth } from '../context/AuthContext'; // 1. I-import ang useAuth hook
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // Import insets
+import { useAuth } from '../context/AuthContext';
 
 // Import all the screens for the tabs
 import AttendanceScreen from '../screens/AttendanceScreen';
@@ -13,16 +14,16 @@ import QRScreen from '../screens/QRScreen';
 const Tab = createBottomTabNavigator();
 
 const MainTabNavigator = () => {
-  // 2. Kunin ang user profile mula sa context
   const { user } = useAuth();
+  const insets = useSafeAreaInsets(); // Kukuha ng sukat ng navigation bar ng phone
   const isStudent = user?.role === 'student';
 
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        headerShown: false, // Itatago natin ang default header ng bawat screen
+        headerShown: false,
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName: keyof typeof Ionicons.glyphMap;
+          let iconName;
 
           switch (route.name) {
             case 'Home':
@@ -45,16 +46,17 @@ const MainTabNavigator = () => {
               break;
           }
 
-          // Return the icon component
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#EA580C', // Orange color for the active tab
-        tabBarInactiveTintColor: 'gray', // Gray for inactive tabs
+        tabBarActiveTintColor: '#EA580C',
+        tabBarInactiveTintColor: 'gray',
         tabBarStyle: {
           backgroundColor: 'white',
           borderTopWidth: 1,
           borderTopColor: '#e2e8f0',
-          height: 55,
+          height: insets.bottom > 0 ? 60 + insets.bottom : 65,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
+          paddingTop: 8,
         },
       })}
     >

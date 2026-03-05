@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -39,7 +40,7 @@ const SettingsScreen = () => {
   const [formData, setFormData] = useState<Partial<ProfileData>>({});
 
   const [pendingProfilePic, setPendingProfilePic] = useState<{ uri: string } | null>(null);
-  const [pendingRegForm, setPendingRegForm] = useState<File | null>(null);
+  const [pendingRegForm, setPendingRegForm] = useState<any | null>(null);
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [colleges, setColleges] = useState<College[]>([]);
@@ -109,23 +110,31 @@ const SettingsScreen = () => {
     }
   };
 
-  const triggerDocumentUpload = () => {
-    if (Platform.OS !== 'web') {
-      showToast('Document upload is only supported on web for now', 'info');
-      return;
-    }
+  const triggerDocumentUpload = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf', 
+        copyToCacheDirectory: true,
+      });
 
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.pdf';
-    input.onchange = (e: any) => {
-      const file = e.target?.files?.[0];
-      if (file) {
-        setPendingRegForm(file);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+
+        if (Platform.OS === 'web') {
+          setPendingRegForm(asset.file);
+        } else {
+          setPendingRegForm({
+            uri: asset.uri,
+            name: asset.name,
+            type: asset.mimeType || 'application/pdf',
+          });
+        }
         setIsEditing(true);
       }
-    };
-    input.click();
+    } catch (error) {
+      console.error("Error picking document:", error);
+      showToast('Failed to open file picker', 'error');
+    }
   };
 
   const removePendingRegForm = () => {
@@ -147,18 +156,32 @@ const SettingsScreen = () => {
     return `${serverUrl}${cleanPath.startsWith('/') ? '' : '/'}${cleanPath}`;
   };
 
-  const viewSavedRegForm = () => {
-    if (pendingRegForm && Platform.OS === 'web') {
-      try {
-        const objectUrl = URL.createObjectURL(pendingRegForm);
-        window.open(objectUrl, '_blank');
-        return;
-      } catch (err) {
-        console.error("Error creating object URL for draft:", err);
-        showToast('Could not preview the draft file.', 'error');
+  // FIX: Inayos ang Viewing capability para gumana sa Mobile at Web (Draft man o Saved)
+  const viewSavedRegForm = async () => {
+    // 1. Kung may draft/pending file pa lang
+    if (pendingRegForm) {
+      if (Platform.OS === 'web') {
+        try {
+          const objectUrl = URL.createObjectURL(pendingRegForm);
+          window.open(objectUrl, '_blank');
+        } catch (err) {
+          console.error("Error creating object URL for draft:", err);
+          showToast('Could not preview the draft file.', 'error');
+        }
+      } else {
+        // Para sa mobile, bubuksan yung local URI
+        try {
+          await Linking.openURL(pendingRegForm.uri);
+        } catch (err) {
+          console.error("Couldn't open local file on mobile", err);
+          showToast('Cannot open file. Please ensure you have a PDF viewer installed.', 'error');
+        }
       }
+      return; // Exit para hindi na mag-run yung pang-saved file
     }
-    else if (profile?.registration_form) {
+    
+    // 2. Kung naka-save na sa database (server file)
+    if (profile?.registration_form) {
       const url = getAssetUrl(profile.registration_form);
       if (url) {
         Linking.openURL(url).catch((err) => {
@@ -254,8 +277,8 @@ const SettingsScreen = () => {
         }
       }
 
-      if (pendingRegForm && Platform.OS === 'web') {
-        submitData.append('registration_form', pendingRegForm);
+      if (pendingRegForm) {
+        submitData.append('registration_form', pendingRegForm as any);
       }
 
       const response = await updateProfile(submitData);
@@ -523,38 +546,44 @@ const SettingsScreen = () => {
                     </View>
                   </View>
 
-                  <View className="flex-row justify-end space-x-2 mt-2 border-t border-slate-200 pt-3">
+                  {/* FIX: Conditional Rendering ng Buttons base sa 'isEditing' state */}
+                  {((pendingRegForm || profile?.registration_form) || (isEditing && canEdit)) && (
+                    <View className="flex-row justify-end space-x-2 mt-2 border-t border-slate-200 pt-3">
 
-                    {pendingRegForm && (
-                      <TouchableOpacity
-                        onPress={removePendingRegForm}
-                        className="px-3 py-2 rounded-lg bg-red-50 border border-red-100"
-                      >
-                        <Text className="text-red-500 font-bold text-sm">Remove</Text>
-                      </TouchableOpacity>
-                    )}
+                      {/* Lilitaw lang ang REMOVE kapag Edit mode at may drafted file */}
+                      {isEditing && pendingRegForm && (
+                        <TouchableOpacity
+                          onPress={removePendingRegForm}
+                          className="px-3 py-2 rounded-lg bg-red-50 border border-red-100"
+                        >
+                          <Text className="text-red-500 font-bold text-sm">Remove</Text>
+                        </TouchableOpacity>
+                      )}
 
-                    {(pendingRegForm || profile?.registration_form) && (
-                      <TouchableOpacity
-                        onPress={viewSavedRegForm}
-                        className="px-3 py-2 rounded-lg bg-blue-50 border border-blue-100"
-                      >
-                        <Text className="text-blue-600 font-bold text-sm">View</Text>
-                      </TouchableOpacity>
-                    )}
+                      {/* Laging lilitaw ang VIEW basta may file (mapa-draft man o saved) */}
+                      {(pendingRegForm || profile?.registration_form) && (
+                        <TouchableOpacity
+                          onPress={viewSavedRegForm}
+                          className="px-3 py-2 rounded-lg bg-blue-50 border border-blue-100"
+                        >
+                          <Text className="text-blue-600 font-bold text-sm">View</Text>
+                        </TouchableOpacity>
+                      )}
 
-                    {canEdit && (
-                      <TouchableOpacity
-                        onPress={triggerDocumentUpload}
-                        className="px-3 py-2 rounded-lg bg-orange-50 border border-orange-100"
-                      >
-                        <Text className="text-orange-600 font-bold text-sm">
-                          {profile?.registration_form || pendingRegForm ? 'Replace' : 'Upload PDF'}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
+                      {/* Lilitaw lang ang UPLOAD/REPLACE kapag nasa Edit mode */}
+                      {isEditing && canEdit && (
+                        <TouchableOpacity
+                          onPress={triggerDocumentUpload}
+                          className="px-3 py-2 rounded-lg bg-orange-50 border border-orange-100"
+                        >
+                          <Text className="text-orange-600 font-bold text-sm">
+                            {profile?.registration_form || pendingRegForm ? 'Replace' : 'Upload PDF'}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
 
-                  </View>
+                    </View>
+                  )}
                 </View>
               </View>
             )}

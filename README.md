@@ -30,35 +30,45 @@ Before you begin, ensure you have the following installed:
    ```
 
 3. **Configure Environment Variables:**
-   Gumawa ng `.env` file sa root directory. Dahil gagamit tayo ng tunnel para kumonekta sa backend, sundin ang steps sa ibaba.
+   Gumawa ng `.env` file sa root directory para sa API configurations.
 
 ---
 
-## 🌐 Connecting to the Backend (Crucial)
+## 🌐 Full Stack Connection Guide (Step-by-Step Cycle)
 
-Para makapag-login at makakita ng data, kailangan ng "tunnel" dahil madalas ay nagkakaroon ng network blockages sa local Wi-Fi/Firewall.
+Sundin ang 4-step cycle na ito para ma-konekta ang Mobile App sa iyong Laravel Backend nang walang aberya.
 
-### Step 1: Run your Laravel Backend
-Sa folder ng iyong Laravel project, i-run ang server:
-```bash
-php artisan serve
-```
-(Siguraduhin na running ito sa port 8000)
+### Step 1: Ang Backend Setup (Laravel)
+Bago ang lahat, siniguro mo muna na tama ang environment ng backend mo para handa siyang tumanggap ng connection.
+1. Binuksan mo ang `.env` file ng Laravel backend mo para i-setup ang database at iba pang configs.
+2. Pinaandar mo ang local server mo gamit ang command na:
+   ```bash
+   php artisan serve
+   ```
+   *(Tumatakbo na ngayon ang backend mo sa http://127.0.0.1:8000)*
 
-### Step 2: Create a Tunnel (API Portal)
-Buksan ang bagong terminal (huwag isara ang Laravel) at i-run ang Localtunnel:
-```bash
-npx localtunnel --port 8000
-```
-I-copy ang URL na ibibigay (e.g., `https://shaggy-dogs-run.loca.lt`).
+### Step 2: Ang Installation at Pagkuha ng Link (LocalTunnel)
+Dahil hindi mababasa ng cellphone ang `127.0.0.1`, kailangan mo ng tulay (tunnel).
+1. Nag-open ka ng bagong terminal at in-install / ni-run mo ang LocalTunnel gamit ang command na ito:
+   ```bash
+   npx localtunnel --port 8000
+   ```
+   *(Kung gusto mo yung may custom name: `npx localtunnel --port 8000 --subdomain joshua-libsys`)*
+2. **Resulta:** May binigay siyang live link sa terminal (Halimbawa: `https://your-custom-link.loca.lt`). **Kinopya mo ito.**
 
-> **Important:** Buksan muna ang link na ito sa browser ng iyong phone. I-click ang "Click to Continue" para ma-authorize ang connection.
+### Step 3: Ang Mobile Setup (React Native)
+Ngayong may live link ka na galing sa Step 2, in-update mo ang environment ng mobile app mo.
+1. Binuksan mo ang config file ng mobile mo (nasa `.env` o `src/services/api.ts`).
+2. Pinalitan mo ang lumang URL at ipinaste ang bagong link:
+   ```typescript
+   export const BASE_URL = 'https://your-custom-link.loca.lt/api';
+   ```
+3. **✨ Magic Touch:** Siguraduhin na may `'Bypass-Tunnel-Reminder': 'true'` sa headers ng Axios mo para hindi harangin ng LocalTunnel warning page yung API requests ng app.
 
-### Step 3: Update Mobile .env
-I-paste ang tunnel URL sa `.env` ng Libsys-Mobile project:
-```env
-API_BASE_URL=https://your-localtunnel-link.loca.lt/api
-```
+### Step 4: Goods na! 🚀
+1. Nai-save mo ang files at nag-reload ang Expo app mo.
+2. Nag-test ka ng login o nag-fetch ng data.
+3. **Pumasok ang data!** Connected na ang React Native UI mo sa Laravel Backend mo.
 
 ---
 
@@ -79,29 +89,15 @@ Kapag lumabas na ang QR code, i-scan ito gamit ang **Expo Go** app sa iyong phon
 - **Private DNS:** Sa Android, siguraduhin na ang Private DNS ay naka-OFF (Settings > Network > Private DNS).
 - **Tunnel Password:** Kung manghingi ng "Tunnel Password" ang website, i-enter ang External IP ng iyong PC (Makikita sa [whatsmyip.org](https://whatsmyip.org)).
 - **Stay Active:** Huwag i-close ang terminal ng Laravel at Localtunnel habang ginagamit ang app.
-- **Same Wi-Fi?** Sa method na ito (Localtunnel), hindi na kailangang magka-Wi-Fi ang phone at PC basta parehong may internet.
+- **Bypass Header:** Kung `403` o `HTML response` ang nakukuha sa API, check kung nandoon ang `Bypass-Tunnel-Reminder` header.
 
 ---
 
-## 📁 Project Structure
-
-```text
-src/
-├── assets/       # Images, fonts, and static files
-├── components/   # Reusable UI elements (Buttons, Inputs, etc.)
-├── context/      # Authentication and Global State (AuthContext)
-├── navigation/   # App routing logic (Tab and Stack navigators)
-├── screens/      # Main application pages (Dashboard, Books, QR)
-├── services/     # API integration (Axios calls)
-└── styles/       # Global CSS and Tailwind configurations
-```
-
-## 🚀 Key Features
-
-- **Real-time Attendance**: Scan QR codes for library check-ins.
-- **Book Management**: Browse and manage your library cart.
-- **Secure Auth**: Login and session management via Keychain/SecureStore.
-- **Cross-Platform**: Optimized for Android, iOS, and Web.
+## 💡 Summary Shortcut (Pang-Memorya)
+1. **Ayusin Backend .env** $\rightarrow$ `php artisan serve`
+2. **npx localtunnel --port 8000** $\rightarrow$ `Copy Link`
+3. **Paste link sa Mobile config** $\rightarrow$ `Add Bypass header`
+4. **Goods na!** Ganyan lang kasimple 'yung cycle, bro.
 
 ---
 
