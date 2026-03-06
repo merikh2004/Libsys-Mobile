@@ -1,353 +1,616 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import * as DocumentPicker from 'expo-document-picker';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
-  Modal,
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  RefreshControl,
   ScrollView,
+  StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Dropdown } from 'react-native-element-dropdown';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
+import { useToast } from '../context/ToastContext';
+import { BASE_URL } from '../services/api';
 import {
-  CartItem,
-  checkout,
-  clearCart,
-  fetchCartItems,
-  removeFromCart,
-  validateCheckoutRules,
-} from '../services/cart';
+  College,
+  Course,
+  fetchColleges,
+  fetchCourses,
+  fetchProfile,
+  ProfileData,
+  updateProfile,
+} from '../services/profile';
 
-const Checkbox = ({ checked, onPress }: { checked: boolean; onPress: () => void }) => (
-  <TouchableOpacity
-    onPress={onPress}
-    activeOpacity={0.8}
-    className={`w-6 h-6 rounded border ${checked ? 'bg-orange-500 border-orange-500' : 'bg-white border-slate-300'} items-center justify-center`}
-  >
-    {checked && <Ionicons name="checkmark" size={16} color="white" />}
-  </TouchableOpacity>
-);
+const SettingsScreen = () => {
+  const { showToast } = useToast();
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [formData, setFormData] = useState<Partial<ProfileData>>({});
 
-const DetailRow = ({ label, value, bold = false }: { label: string; value?: string; bold?: boolean }) => {
-  const displayValue = (!value || value.toLowerCase() === 'na' || value.trim() === '') ? 'N/A' : value;
-  return (
-    <View className="border-b border-slate-50 pb-2 mb-2">
-      <Text className="text-slate-400 font-bold text-[10px] uppercase mb-0.5">{label}</Text>
-      <Text className={`text-[#3E2723] text-base ${bold ? 'font-bold' : ''}`}>{displayValue}</Text>
-    </View>
-  );
-};
+  const [pendingProfilePic, setPendingProfilePic] = useState<{ uri: string } | null>(null);
+  const [pendingRegForm, setPendingRegForm] = useState<any | null>(null);
 
-const CartScreen = ({ navigation }: any) => {
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [colleges, setColleges] = useState<College[]>([]);
 
-  const [selectedItemDetails, setSelectedItemDetails] = useState<any | null>(null);
-  const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
-
-  const [alertConfig, setAlertConfig] = useState({
-    visible: false, title: '', message: '', onConfirm: undefined as any, showCancel: false, confirmText: 'OK'
-  });
-
-  const showAlert = (title: string, message: string, onConfirm?: () => void, showCancel = false, confirmText = 'OK') => {
-    setAlertConfig({ visible: true, title, message, onConfirm, showCancel, confirmText });
-  };
-
-  const closeAlert = () => setAlertConfig(prev => ({ ...prev, visible: false }));
-
-  const loadCart = async () => {
+  const loadProfile = async () => {
     try {
-      setIsLoading(true);
-      const items = await fetchCartItems();
-      setCartItems(items || []);
+      const response = await fetchProfile();
+      if (response.success) {
+        setProfile(response.data);
+        setFormData(response.data);
+        setPendingProfilePic(null);
+        setPendingRegForm(null);
+      }
     } catch (error) {
-      console.error('Failed to load cart:', error);
+      console.error('Failed to load profile:', error);
+      showToast('Failed to load profile', 'error');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  // UPDATE: Auto-refresh kapag pumasok sa Cart tab
-  useEffect(() => {
-    const unsubscribe = navigation?.addListener('focus', () => {
-        loadCart();
-    });
-    // Fallback load kung sakaling hindi nag-fire ang focus event
-    loadCart(); 
-    return unsubscribe;
-  }, [navigation]);
+  const loadMetadata = async () => {
+    try {
+      const [coursesRes, collegesRes] = await Promise.all([
+        fetchCourses(),
+        fetchColleges(),
+      ]);
+      if (coursesRes.success && coursesRes.courses) setCourses(coursesRes.courses);
+      if (collegesRes.success && collegesRes.colleges) setColleges(collegesRes.colleges);
+    } catch (error) {
+      console.error('Failed to load metadata:', error);
+    }
+  };
 
-  const toggleSelect = (uniqueKey: string) => {
-    setSelectedItems((prev) =>
-      prev.includes(uniqueKey) ? prev.filter((key) => key !== uniqueKey) : [...prev, uniqueKey]
+  useEffect(() => {
+    loadProfile();
+    loadMetadata();
+  }, []);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadProfile();
+  }, []);
+
+  const isFaculty = profile?.role === 'faculty' || profile?.role === 'staff';
+  const canEdit = isFaculty || profile?.can_edit_profile === 1;
+
+  const pickImageFromGallery = async () => {
+    const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!granted) {
+      showToast("Access to photos is required!", "warning");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setPendingProfilePic({ uri: result.assets[0].uri });
+      setIsEditing(true);
+    }
+  };
+
+  const triggerDocumentUpload = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf', 
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+
+        if (Platform.OS === 'web') {
+          setPendingRegForm(asset.file);
+        } else {
+          setPendingRegForm({
+            uri: asset.uri,
+            name: asset.name,
+            type: asset.mimeType || 'application/pdf',
+          });
+        }
+        setIsEditing(true);
+      }
+    } catch (error) {
+      console.error("Error picking document:", error);
+      showToast('Failed to open file picker', 'error');
+    }
+  };
+
+  const removePendingRegForm = () => {
+    setPendingRegForm(null);
+  };
+
+  const getAssetUrl = (path: string | null | undefined) => {
+    if (!path) return null;
+    if (path.startsWith('http')) return path;
+    
+    let cleanPath = path.replace(/\\/g, '/');
+    
+    if (!cleanPath.startsWith('storage/') && !cleanPath.includes('/storage/')) {
+      cleanPath = `storage/${cleanPath}`; 
+    }
+
+    const serverUrl = BASE_URL.replace(/\/api\/?$/, '');
+
+    return `${serverUrl}${cleanPath.startsWith('/') ? '' : '/'}${cleanPath}`;
+  };
+
+  // FIX: Inayos ang Viewing capability para gumana sa Mobile at Web (Draft man o Saved)
+  const viewSavedRegForm = async () => {
+    // 1. Kung may draft/pending file pa lang
+    if (pendingRegForm) {
+      if (Platform.OS === 'web') {
+        try {
+          const objectUrl = URL.createObjectURL(pendingRegForm);
+          window.open(objectUrl, '_blank');
+        } catch (err) {
+          console.error("Error creating object URL for draft:", err);
+          showToast('Could not preview the draft file.', 'error');
+        }
+      } else {
+        // Para sa mobile, bubuksan yung local URI
+        try {
+          await Linking.openURL(pendingRegForm.uri);
+        } catch (err) {
+          console.error("Couldn't open local file on mobile", err);
+          showToast('Cannot open file. Please ensure you have a PDF viewer installed.', 'error');
+        }
+      }
+      return; // Exit para hindi na mag-run yung pang-saved file
+    }
+    
+    // 2. Kung naka-save na sa database (server file)
+    if (profile?.registration_form) {
+      const url = getAssetUrl(profile.registration_form);
+      if (url) {
+        Linking.openURL(url).catch((err) => {
+          console.error("Couldn't load page", err);
+          showToast('Could not open the file.', 'error');
+        });
+      }
+    }
+  };
+
+  const handleUpdateProfile = async () => {
+    const requiredFields: (keyof ProfileData)[] = isFaculty
+      ? ['first_name', 'last_name', 'contact', 'college_id']
+      : ['first_name', 'last_name', 'email', 'contact', 'section', 'course_id'];
+
+    const missingFields = requiredFields.filter(field => !formData[field]);
+
+    if (missingFields.length > 0) {
+      const fieldLabels = missingFields.map(f => f.replace('_', ' ').toUpperCase());
+      showToast(`Required fields: ${fieldLabels.join(', ')}`, 'warning');
+      return;
+    }
+
+    const contact = formData.contact || '';
+    const isContactValid =
+      (contact.startsWith('09') && contact.length === 11) ||
+      (contact.startsWith('+639') && contact.length === 13) ||
+      (contact.startsWith('639') && contact.length === 12);
+
+    if (!isContactValid) {
+      showToast('Invalid contact number format.', 'warning');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const submitData = new FormData();
+
+      Object.keys(formData).forEach((key) => {
+        if (formData[key] !== null && formData[key] !== undefined && key !== 'profile_picture' && key !== 'registration_form') {
+          submitData.append(key, String(formData[key]));
+        }
+      });
+
+      if (pendingProfilePic) {
+        if (Platform.OS === 'web') {
+          try {
+            const res = await fetch(pendingProfilePic.uri);
+            const blob = await res.blob();
+
+            const jpegFile: File = await new Promise((resolve, reject) => {
+              const img = document.createElement('img');
+              img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                  ctx.fillStyle = '#FFFFFF';
+                  ctx.fillRect(0, 0, canvas.width, canvas.height);
+                  ctx.drawImage(img, 0, 0);
+                }
+
+                canvas.toBlob((newBlob) => {
+                  if (newBlob) {
+                    resolve(new File([newBlob], 'profile.jpg', { type: 'image/jpeg' }));
+                  } else {
+                    reject(new Error('Canvas toBlob failed'));
+                  }
+                }, 'image/jpeg', 0.9);
+              };
+              img.onerror = () => reject(new Error('Image load failed'));
+              img.src = URL.createObjectURL(blob);
+            });
+
+            submitData.append('profile_picture', jpegFile);
+          } catch (e) {
+            console.error("Web Image Conversion Error:", e);
+            const res = await fetch(pendingProfilePic.uri);
+            const blob = await res.blob();
+            submitData.append('profile_picture', blob, 'profile.jpg');
+          }
+        } else {
+          const filename = pendingProfilePic.uri.split('/').pop() || 'profile.jpg';
+          const match = /\.(\w+)$/.exec(filename);
+          const type = match ? `image/${match[1]}` : `image/jpeg`;
+
+          submitData.append('profile_picture', {
+            uri: pendingProfilePic.uri,
+            name: filename,
+            type,
+          } as any);
+        }
+      }
+
+      if (pendingRegForm) {
+        submitData.append('registration_form', pendingRegForm as any);
+      }
+
+      const response = await updateProfile(submitData);
+
+      if (response.success || response.message === "Profile updated successfully.") {
+        setIsEditing(false);
+        setPendingProfilePic(null);
+        setPendingRegForm(null);
+
+        showToast('Profile updated successfully', 'success');
+        await loadProfile();
+      }
+    } catch (error: any) {
+      console.error('Failed to update profile:', error?.response?.data || error.message);
+      if (error?.response?.data?.errors) {
+        const errorMessages = Object.values(error.response.data.errors).flat().join('\n');
+        showToast(errorMessages, 'error');
+      } else {
+        showToast('Failed to update profile', 'error');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const displayPic = pendingProfilePic?.uri || getAssetUrl(profile?.profile_picture);
+  
+  const displayRegFormName = pendingRegForm?.name
+    ? pendingRegForm.name
+    : (profile?.registration_form ? profile.registration_form.replace(/\\/g, '/').split('/').pop() : 'No file uploaded. Upload PDF only.');
+
+  const handleInputChange = (field: keyof ProfileData, text: string) => {
+    let formattedText = text;
+    if (field === 'year_level') {
+      formattedText = text.replace(/[^0-9]/g, '').substring(0, 1);
+    }
+    else if (field === 'section') {
+      formattedText = text.replace(/[^a-zA-Z]/g, '').toUpperCase().substring(0, 1);
+    }
+    else if (field === 'contact') {
+      formattedText = text.replace(/[^\d+]/g, '');
+      if (formattedText.startsWith('+63')) {
+        formattedText = formattedText.substring(0, 13);
+      } else if (formattedText.startsWith('63')) {
+        formattedText = formattedText.substring(0, 12);
+      } else if (formattedText.startsWith('09')) {
+        formattedText = formattedText.substring(0, 11);
+      } else if (formattedText.length > 0 && !formattedText.startsWith('+') && !formattedText.startsWith('6') && !formattedText.startsWith('0')) {
+        formattedText = '09' + formattedText.replace(/[^0-9]/g, '');
+        formattedText = formattedText.substring(0, 11);
+      }
+    }
+    setFormData({ ...formData, [field]: formattedText });
+  };
+
+  const renderInput = (label: string, field: keyof ProfileData, keyboardType: any = 'default', isRequired = false) => (
+    <View className="mb-4">
+      <View className="flex-row items-center mb-1.5 ml-1">
+        <Text className="text-slate-500 font-medium">{label}</Text>
+        {isRequired && <Text className="text-red-500 ml-1">*</Text>}
+      </View>
+      <TextInput
+        className={`w-full px-4 py-3 rounded-xl border ${isEditing ? 'bg-white border-orange-100 text-slate-900' : 'bg-slate-50 border-slate-100 text-slate-500'
+          }`}
+        value={String(formData[field] || '')}
+        onChangeText={(text) => handleInputChange(field, text)}
+        editable={isEditing}
+        placeholder={`Enter ${label.toLowerCase()}`}
+        keyboardType={keyboardType}
+      />
+    </View>
+  );
+
+  const renderDropdown = () => {
+    const label = isFaculty ? 'College' : 'Course';
+    const isRequired = true;
+
+    const data = isFaculty
+      ? (colleges || []).map(c => ({
+        label: c.college_name || c.college_code,
+        value: c.college_id
+      }))
+      : (courses || []).map(c => ({
+        label: c.course_title || c.course_code,
+        value: c.course_id
+      }));
+
+    const currentValue = isFaculty ? formData.college_id : formData.course_id;
+
+    const displayValue = isFaculty
+      ? colleges.find(c => c.college_id === profile?.college_id)?.college_name || profile?.college_name || 'N/A'
+      : courses.find(c => c.course_id === profile?.course_id)?.course_title || profile?.course_title || 'N/A';
+
+    return (
+      <View className="mb-4">
+        <View className="flex-row items-center mb-1.5 ml-1">
+          <Text className="text-slate-500 font-medium">{label}</Text>
+          {isRequired && <Text className="text-red-500 ml-1">*</Text>}
+        </View>
+
+        {isEditing ? (
+          <Dropdown
+            style={styles.dropdown}
+            placeholderStyle={styles.placeholderStyle}
+            selectedTextStyle={styles.selectedTextStyle}
+            inputSearchStyle={styles.inputSearchStyle}
+            iconStyle={styles.iconStyle}
+            data={data}
+            search
+            maxHeight={300}
+            labelField="label"
+            valueField="value"
+            placeholder={`Select ${label}`}
+            searchPlaceholder="Search..."
+            value={currentValue}
+            onChange={item => {
+              if (isFaculty) {
+                setFormData({ ...formData, college_id: item.value as number });
+              } else {
+                setFormData({ ...formData, course_id: item.value as number });
+              }
+            }}
+            renderLeftIcon={() => (
+              <Ionicons
+                style={styles.icon}
+                color="#EA580C"
+                name={isFaculty ? "business-outline" : "book-outline"}
+                size={20}
+              />
+            )}
+          />
+        ) : (
+          <View className="w-full px-4 py-3 rounded-xl border bg-slate-50 border-slate-100 flex-row items-center">
+            <Ionicons name={isFaculty ? "business-outline" : "book-outline"} size={20} color="#94a3b8" />
+            <Text className="text-slate-500 ml-2">{displayValue}</Text>
+          </View>
+        )}
+      </View>
     );
   };
 
-  const toggleSelectAll = () => {
-    if (selectedItems.length === cartItems.length && cartItems.length > 0) {
-      setSelectedItems([]);
-    } else {
-      setSelectedItems(cartItems.map((item, index) => `${item.cart_id || item.id}-${index}`));
-    }
-  };
-
-  const handleDelete = (idToUse: number | undefined, uniqueKey: string) => {
-    if (!idToUse) {
-      showAlert('Error', 'Invalid item ID.');
-      return;
-    }
-    showAlert('Remove Item', 'Are you sure you want to remove this item?', async () => {
-      closeAlert();
-      setIsLoading(true);
-      const result = await removeFromCart(idToUse);
-      if (result.success) {
-        setCartItems((prev) => prev.filter((item) => (item.cart_id || item.id) !== idToUse));
-        setSelectedItems((prev) => prev.filter((key) => key !== uniqueKey));
-      } else {
-        showAlert('Error', result.message || 'Failed to remove item.');
-      }
-      setIsLoading(false);
-    }, true, 'Remove');
-  };
-
-  const handleClearCart = () => {
-    if (cartItems.length === 0) return;
-    showAlert('Clear Cart', 'Are you sure you want to clear your entire cart?', async () => {
-      closeAlert();
-      setIsLoading(true);
-      const allCartIds = cartItems.map(item => item.cart_id || item.id || 0).filter(id => id !== 0);
-      const success = await clearCart(allCartIds);
-      if (success) {
-        setCartItems([]);
-        setSelectedItems([]);
-        showAlert('Success', 'Cart has been cleared.');
-      } else {
-        showAlert('Error', 'Failed to clear cart.');
-      }
-      setIsLoading(false);
-    }, true, 'Clear All');
-  };
-
-  const handleCheckout = () => {
-    if (selectedItems.length === 0) {
-      showAlert('Error', 'Please select at least one item.');
-      return;
-    }
-
-    const itemsToValidate = cartItems.filter((item, index) => {
-      const itemUniqueKey = `${item.cart_id || item.id}-${index}`;
-      return selectedItems.includes(itemUniqueKey);
-    });
-
-    const validation = validateCheckoutRules(itemsToValidate);
-
-    if (!validation.isValid) {
-      showAlert('Checkout Restricted', validation.message || 'Error');
-      return;
-    }
-
-    showAlert('Check Out', `Confirm check out for ${itemsToValidate.length} items?`, async () => {
-      closeAlert();
-      setIsLoading(true);
-      try {
-        const realIdsToCheckout = itemsToValidate.map(item => item.cart_id || item.id || 0).filter(id => id !== 0);
-        const response = await checkout(realIdsToCheckout);
-
-        if (response && response.success) {
-          setSelectedItems([]);
-          await loadCart();
-
-          showAlert('Success', 'Check out successful!', () => {
-            closeAlert();
-            if (navigation && navigation.navigate) {
-              navigation.navigate('Main', {
-                screen: 'QR',
-                params: { ticket: response.data }
-              });
-            }
-          });
-        } else {
-          const errorMsg = response?.message || 'Failed to checkout.';
-          if (errorMsg.toLowerCase().includes('profile')) {
-              showAlert('Profile Setup Required', errorMsg, () => {
-                  closeAlert();
-                  if (navigation && navigation.navigate) navigation.navigate('Settings');
-              }, true, 'Go to Settings');
-          } else {
-              showAlert('Error', errorMsg);
-          }
-        }
-      } catch (error) {
-        showAlert('Error', 'An unexpected error occurred.');
-      } finally {
-        setIsLoading(false);
-      }
-    }, true, 'Confirm');
-  };
-
-  const openDetailModal = (details: any) => {
-    setSelectedItemDetails(details);
-    setIsDetailModalVisible(true);
-  };
-
-  const selectedBooksCount = cartItems.filter((item, index) => {
-    const isSelected = selectedItems.includes(`${item.cart_id || item.id}-${index}`);
-    const details = item.item_details || (item as any).book || item;
-    const isBook = item.type === 'book' || !!(item as any).book || !!details.author;
-    return isSelected && isBook;
-  }).length;
-
-  const selectedEquipmentCount = selectedItems.length - selectedBooksCount;
+  if (loading) return <View className="flex-1 items-center justify-center bg-[#f8fafc]"><ActivityIndicator size="large" color="#EA580C" /></View>;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FDFBF7' }} edges={['bottom', 'left', 'right']}>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-        <View className="p-6">
-          <View className="mb-2">
-            <Text className="text-3xl font-bold text-[#3E2723]">My Cart</Text>
-            <Text className="text-slate-500 mt-2 text-base">Review and checkout your items.</Text>
-          </View>
+    <SafeAreaView style={{ flex: 1 }} className="bg-[#f8fafc]" edges={['bottom', 'left', 'right']}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 100 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#EA580C']} />}
+        >
+          <View className="p-6">
+            <Text className="text-3xl font-bold text-slate-900 mb-6">My Profile</Text>
 
-          <View className="flex-row justify-end mb-6">
-            <View className="bg-white px-4 py-2 rounded-xl border border-orange-100 flex-row items-center shadow-sm">
-              <Ionicons name="cart-outline" size={18} color="#4B5563" />
-              <Text className="text-[#4B5563] ml-2 font-medium">{cartItems.length} items</Text>
-            </View>
-          </View>
-
-          {isLoading ? (
-            <View className="py-20 items-center justify-center">
-              <ActivityIndicator size="large" color="#EA580C" />
-            </View>
-          ) : cartItems.length === 0 ? (
-            <View className="bg-white rounded-[24px] p-10 items-center border border-orange-100 shadow-sm justify-center min-h-[300px]">
-              <Ionicons name="cart-outline" size={80} color="#9A3412" />
-              <Text className="text-xl font-bold text-[#374151] mt-4">Empty Cart</Text>
-              <Text className="text-slate-500 mt-2">Your cart is currently empty.</Text>
-            </View>
-          ) : (
-            <View>
-              <View className="bg-white rounded-2xl p-5 mb-8 border border-orange-100 shadow-sm">
-                <View className="flex-row justify-between items-center mb-4">
-                  <Text className="text-xl font-bold text-[#3E2723]">Summary</Text>
-                  <TouchableOpacity onPress={toggleSelectAll} className="flex-row items-center">
-                    <Checkbox checked={selectedItems.length === cartItems.length && cartItems.length > 0} onPress={toggleSelectAll} />
-                    <Text className="ml-2 text-orange-800 font-medium text-sm">Select All</Text>
-                  </TouchableOpacity>
+            {/* PROFILE PICTURE SECTION */}
+            <View className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8 items-center">
+              <View className="relative mb-4">
+                <View className="w-32 h-32 rounded-full bg-slate-200 border-4 border-white shadow-lg overflow-hidden">
+                  {displayPic ? (
+                    <Image source={{ uri: displayPic }} style={{ width: '100%', height: '100%' }} />
+                  ) : (
+                    <Ionicons name="person" size={64} color="#94a3b8" style={{ alignSelf: 'center', marginTop: 25 }} />
+                  )}
                 </View>
-                <Text className="text-slate-600 mb-6 text-sm">
-                  Selected: {selectedBooksCount} book(s) and {selectedEquipmentCount} equipment(s).
+                {canEdit && (
+                  <TouchableOpacity
+                    onPress={pickImageFromGallery}
+                    className="absolute bottom-0 right-0 bg-orange-500 w-10 h-10 rounded-full items-center justify-center border-2 border-white shadow-sm"
+                  >
+                    <Ionicons name="camera" size={20} color="white" />
+                  </TouchableOpacity>
+                )}
+              </View>
+              
+              {/* NAME AND BADGE SECTION */}
+              <View className="flex-row items-center justify-center flex-wrap mt-1">
+                <Text className="text-xl font-bold text-slate-900 uppercase text-center mr-2">
+                  {profile?.first_name} {profile?.last_name}
                 </Text>
-                <View className="flex-row gap-3">
-                  <TouchableOpacity onPress={handleCheckout} className="flex-1 bg-orange-600 py-3.5 rounded-xl items-center shadow-sm">
-                    <Text className="text-white font-bold text-lg">Check Out</Text>
+                
+                {/* VERIFIED BADGE */}
+                {profile?.is_qualified && (
+                  <View className="bg-blue-50 px-2 py-1 rounded-full border border-blue-200 flex-row items-center">
+                    <Ionicons name="checkmark-circle" size={14} color="#3b82f6" />
+                    <Text className="text-blue-600 text-xs font-bold ml-1 uppercase">Verified</Text>
+                  </View>
+                )}
+              </View>
+              
+            </View>
+
+            {/* BASIC INFO */}
+            <View className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8">
+              <View className="flex-row justify-between items-center mb-6">
+                <View className="flex-row items-center">
+                  <Ionicons name="person-outline" size={20} color="#334155" />
+                  <Text className="text-xl font-bold text-slate-800 ml-2">Basic Information</Text>
+                </View>
+
+                {canEdit && (
+                  <TouchableOpacity
+                    onPress={() => setIsEditing(!isEditing)}
+                    className={`w-10 h-10 items-center justify-center rounded-xl border ${isEditing ? 'bg-red-50 border-red-100' : 'bg-orange-50 border-orange-100'
+                      }`}
+                  >
+                    <Ionicons name={isEditing ? 'close-outline' : 'create-outline'} size={20} color={isEditing ? '#ef4444' : '#EA580C'} />
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={handleClearCart} className="flex-1 bg-white border border-orange-200 py-3.5 rounded-xl items-center shadow-sm">
-                    <Text className="text-orange-600 font-bold text-lg">Clear Cart</Text>
-                  </TouchableOpacity>
+                )}
+              </View>
+              {renderInput('Last Name', 'last_name', 'default', true)}
+              {renderInput('First Name', 'first_name', 'default', true)}
+              {renderInput('Middle Name', 'middle_name')}
+              {renderInput('Suffix', 'suffix')}
+            </View>
+
+            {/* DETAILS SECTION */}
+            <View className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8">
+              <View className="flex-row items-center mb-6">
+                <Ionicons name={isFaculty ? "briefcase-outline" : "school-outline"} size={20} color="#334155" />
+                <Text className="text-xl font-bold text-slate-800 ml-2">
+                  {isFaculty ? 'Faculty Details' : 'Student Details'}
+                </Text>
+              </View>
+              <View className="mb-4">
+                <Text className="text-slate-500 font-medium mb-1.5 ml-1">User ID</Text>
+                <View className="w-full px-4 py-3 rounded-xl border bg-slate-100 border-slate-100">
+                  <Text className="text-slate-500">
+                    {isFaculty ? profile?.unique_faculty_id : profile?.student_number}
+                  </Text>
                 </View>
               </View>
 
-              <Text className="text-xl font-bold text-[#3E2723] mb-4">Items in Cart</Text>
-              {cartItems.map((item, index) => {
-                const details = item.item_details || (item as any).book || (item as any).equipment || item;
-                const isBook = item.type === 'book' || !!(item as any).book || !!details.author;
-                const itemUniqueKey = `${item.cart_id || item.id}-${index}`;
-                const isSelected = selectedItems.includes(itemUniqueKey);
+              {renderDropdown()}
 
-                return (
-                  <View key={itemUniqueKey} className={`bg-white rounded-2xl p-4 mb-4 border ${isSelected ? 'border-orange-500 bg-orange-50/20' : 'border-slate-100'} shadow-sm flex-row items-center`}>
-                    <View className="mr-3 p-1">
-                      <Checkbox checked={isSelected} onPress={() => toggleSelect(itemUniqueKey)} />
-                    </View>
-                    <TouchableOpacity className="flex-1 flex-row items-center" onPress={() => openDetailModal(details)} activeOpacity={0.7}>
-                      <View className="w-[60px] h-[80px] bg-orange-50 rounded-lg overflow-hidden mr-3 items-center justify-center border border-orange-100">
-                        {details.image_url ? (
-                          <Image source={{ uri: details.image_url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                        ) : (
-                          <Ionicons name={isBook ? 'book' : 'construct'} size={32} color="#9A3412" />
-                        )}
-                      </View>
-                      <View className="flex-1">
-                        <Text className="font-bold text-[#3E2723] text-base" numberOfLines={1}>{details.title || details.name || 'Item'}</Text>
-                        <Text className="text-slate-500 text-xs">Accession No. : {details.accession_number || 'N/A'}</Text>
-                      </View>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDelete(item.cart_id || item.id, itemUniqueKey)} className="ml-2 p-2">
-                      <Ionicons name="trash-outline" size={22} color="#94a3b8" />
-                    </TouchableOpacity>
-                  </View>
-                );
-              })}
-            </View>
-          )}
-        </View>
-      </ScrollView>
-
-      <Modal visible={isDetailModalVisible} transparent={true} animationType="fade" onRequestClose={() => setIsDetailModalVisible(false)}>
-        <View className="flex-1 bg-black/50 justify-center p-6">
-          <View className="bg-white rounded-3xl p-6 shadow-2xl max-h-[85%]">
-            <View className="flex-row justify-between items-center mb-6">
-              <Text className="text-2xl font-bold text-[#3E2723]">Item Details</Text>
-              <TouchableOpacity onPress={() => setIsDetailModalVisible(false)}>
-                <Ionicons name="close-circle" size={32} color="#94a3b8" />
-              </TouchableOpacity>
-            </View>
-
-            {selectedItemDetails && (
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <View className="items-center mb-6">
-                  <View className="w-32 h-44 bg-orange-50 rounded-2xl items-center justify-center border border-orange-100 overflow-hidden shadow-md">
-                    {selectedItemDetails.image_url ? (
-                      <Image source={{ uri: selectedItemDetails.image_url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                    ) : (
-                      <Ionicons name={selectedItemDetails.author ? 'book-outline' : 'construct-outline'} size={64} color="#9A3412" />
-                    )}
-                  </View>
+              {!isFaculty && (
+                <View className="flex-row space-x-4">
+                  <View style={{ flex: 1 }}>{renderInput('Year', 'year_level', 'numeric', true)}</View>
+                  <View style={{ flex: 1 }}>{renderInput('Section', 'section', 'default', true)}</View>
                 </View>
-                <View className="space-y-4">
-                  <DetailRow label="Title" value={selectedItemDetails.title || selectedItemDetails.name} bold />
-                  <DetailRow label="Author" value={selectedItemDetails.author} />
-                  <DetailRow label="Accession #" value={selectedItemDetails.accession_number} />
-                  <DetailRow label="Call Number" value={selectedItemDetails.call_number} />
-                  <DetailRow label="Subject" value={selectedItemDetails.subject} />
-                </View>
-              </ScrollView>
-            )}
-            <TouchableOpacity onPress={() => setIsDetailModalVisible(false)} className="mt-8 bg-orange-600 py-3.5 rounded-2xl items-center">
-              <Text className="text-white font-bold text-lg">Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={alertConfig.visible} transparent={true} animationType="fade">
-        <View className="flex-1 bg-black/50 justify-center items-center p-6">
-          <View className="bg-white rounded-2xl p-6 w-full max-w-[340px] shadow-xl">
-            <Text className="text-xl font-bold text-slate-900 mb-2">{alertConfig.title}</Text>
-            <Text className="text-slate-600 text-base mb-6 leading-6">{alertConfig.message}</Text>
-
-            <View className="flex-row justify-end space-x-3">
-              {alertConfig.showCancel && (
-                <TouchableOpacity onPress={closeAlert} className="px-5 py-2.5 rounded-xl">
-                  <Text className="text-slate-500 font-bold text-base">Cancel</Text>
-                </TouchableOpacity>
               )}
-              <TouchableOpacity
-                onPress={() => { alertConfig.onConfirm ? alertConfig.onConfirm() : closeAlert(); }}
-                className="bg-orange-600 px-6 py-2.5 rounded-xl shadow-sm"
-              >
-                <Text className="text-white font-bold text-base">{alertConfig.confirmText || 'OK'}</Text>
-              </TouchableOpacity>
+              {renderInput('Email', 'email', 'email-address', !isFaculty)}
+              {renderInput('Contact', 'contact', 'phone-pad', true)}
             </View>
+
+            {/* REGISTRATION DOCUMENTS */}
+            {!isFaculty && (
+              <View className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-4">
+                <View className="flex-row items-center mb-6">
+                  <Ionicons name="folder-outline" size={20} color="#334155" />
+                  <Text className="text-xl font-bold text-slate-800 ml-2">Registration Documents</Text>
+                </View>
+
+                <View className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-4">
+                  <View className="flex-row items-center mb-4">
+                    <View className="bg-white w-12 h-12 rounded-xl items-center justify-center border border-slate-100 shadow-sm">
+                      <Ionicons name="document-text" size={24} color={pendingRegForm ? "#EA580C" : "#3b82f6"} />
+                    </View>
+                    <View className="ml-4 flex-1">
+                      <Text className="text-slate-900 font-bold text-base">Registration Form</Text>
+                      <Text className="text-slate-500 text-xs mt-1" numberOfLines={1}>
+                        {displayRegFormName}
+                      </Text>
+                      {pendingRegForm && (
+                        <Text className="text-orange-500 text-[10px] font-bold mt-1">Ready to upload (Draft)</Text>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* FIX: Conditional Rendering ng Buttons base sa 'isEditing' state */}
+                  {((pendingRegForm || profile?.registration_form) || (isEditing && canEdit)) && (
+                    <View className="flex-row justify-end space-x-2 mt-2 border-t border-slate-200 pt-3">
+
+                      {/* Lilitaw lang ang REMOVE kapag Edit mode at may drafted file */}
+                      {isEditing && pendingRegForm && (
+                        <TouchableOpacity
+                          onPress={removePendingRegForm}
+                          className="px-3 py-2 rounded-lg bg-red-50 border border-red-100"
+                        >
+                          <Text className="text-red-500 font-bold text-sm">Remove</Text>
+                        </TouchableOpacity>
+                      )}
+
+                      {/* Laging lilitaw ang VIEW basta may file (mapa-draft man o saved) */}
+                      {(pendingRegForm || profile?.registration_form) && (
+                        <TouchableOpacity
+                          onPress={viewSavedRegForm}
+                          className="px-3 py-2 rounded-lg bg-blue-50 border border-blue-100"
+                        >
+                          <Text className="text-blue-600 font-bold text-sm">View</Text>
+                        </TouchableOpacity>
+                      )}
+
+                      {/* Lilitaw lang ang UPLOAD/REPLACE kapag nasa Edit mode */}
+                      {isEditing && canEdit && (
+                        <TouchableOpacity
+                          onPress={triggerDocumentUpload}
+                          className="px-3 py-2 rounded-lg bg-orange-50 border border-orange-100"
+                        >
+                          <Text className="text-orange-600 font-bold text-sm">
+                            {profile?.registration_form || pendingRegForm ? 'Replace' : 'Upload PDF'}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+
+                    </View>
+                  )}
+                </View>
+              </View>
+            )}
+
+            {isEditing && (
+              <TouchableOpacity
+                onPress={handleUpdateProfile}
+                disabled={submitting}
+                className={`w-full bg-orange-600 py-4 rounded-2xl items-center shadow-lg mt-4 ${submitting ? 'opacity-70' : ''}`}
+              >
+                {submitting ? <ActivityIndicator color="white" /> : <Text className="text-white font-bold text-lg">Save Changes</Text>}
+              </TouchableOpacity>
+            )}
           </View>
-        </View>
-      </Modal>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
-export default CartScreen;
+export default SettingsScreen;
+
+const styles = StyleSheet.create({
+  dropdown: { height: 48, backgroundColor: 'white', borderColor: '#ffedd5', borderWidth: 1, borderRadius: 12, paddingHorizontal: 16 },
+  icon: { marginRight: 10 },
+  placeholderStyle: { fontSize: 14, color: '#94a3b8' },
+  selectedTextStyle: { fontSize: 14, color: '#0f172a' },
+  iconStyle: { width: 20, height: 20 },
+  inputSearchStyle: { height: 40, fontSize: 14, borderRadius: 8 },
+});
