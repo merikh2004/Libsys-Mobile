@@ -3,11 +3,12 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import * as Linking from 'expo-linking';
+import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   RefreshControl,
   ScrollView,
@@ -166,6 +167,7 @@ const SettingsScreen = () => {
   };
 
   const viewSavedRegForm = async () => {
+    // CASE 1: DRAFT FILE (Local View)
     if (pendingRegForm) {
       if (Platform.OS === 'web') {
         try {
@@ -177,45 +179,75 @@ const SettingsScreen = () => {
         }
       } else {
         try {
-          await Linking.openURL(pendingRegForm.uri);
+          if (await Sharing.isAvailableAsync()) {
+            // expo-sharing handles the file:// to content:// conversion internally
+            await Sharing.shareAsync(pendingRegForm.uri, { 
+              mimeType: 'application/pdf',
+              UTI: 'com.adobe.pdf' 
+            });
+          } else {
+            // Fallback: convert to content URI for Linking.openURL
+            const contentUri = await FileSystem.getContentUriAsync(pendingRegForm.uri);
+            await Linking.openURL(contentUri);
+          }
         } catch (err) {
-          console.error("Couldn't open local file on mobile", err);
-          showToast('Cannot open file.', 'error');
+          console.error("Draft View Error:", err);
+          showToast('Could not open draft file.', 'error');
         }
       }
       return;
     }
 
+    // CASE 2: SAVED FILE (Server Silent View)
     if (profile?.registration_form) {
       if (Platform.OS === 'web') {
         const url = getAssetUrl(profile.registration_form);
         if (url) window.open(url, '_blank');
       } else {
         try {
-          const url = getAssetUrl(profile.registration_form);
-          if (!url) return;
-
-          const fileUri = FileSystem.documentDirectory + 'reg_form.pdf';
           const token = await getToken();
+          const fileUri = FileSystem.documentDirectory + 'reg_form.pdf';
+          const pdfUrl = getAssetUrl(profile.registration_form);
 
-          const downloadResumable = FileSystem.createDownloadResumable(
-            url,
+          if (!pdfUrl) {
+            showToast('Invalid file URL.', 'error');
+            return;
+          }
+
+          // Download the PDF with required headers
+          const downloadRes = await FileSystem.downloadAsync(
+            pdfUrl,
             fileUri,
             {
               headers: {
-                Authorization: `Bearer ${token}`,
-                'Bypass-Tunnel-Reminder': 'true',
+                'Authorization': `Bearer ${token}`,
+                'Bypass-Tunnel-Reminder': 'true', // Crucial for Localtunnel
               },
             }
           );
 
-          const result = await downloadResumable.downloadAsync();
-          if (result && result.uri) {
-            await Linking.openURL(result.uri);
+          // Verify server response (200 OK)
+          if (downloadRes.status !== 200) {
+            throw new Error(`Server returned status ${downloadRes.status}`);
+          }
+
+          if (downloadRes.uri) {
+            if (await Sharing.isAvailableAsync()) {
+              // Trigger the Android Intent safely using the raw file:// URI
+              await Sharing.shareAsync(downloadRes.uri, { 
+                mimeType: 'application/pdf',
+                UTI: 'com.adobe.pdf'
+              });
+            } else {
+              // Fallback for environments where sharing isn't available
+              const contentUri = await FileSystem.getContentUriAsync(downloadRes.uri);
+              await Linking.openURL(contentUri);
+            }
           }
         } catch (e) {
-          console.error('PDF Download Error:', e);
-          showToast('Failed to download PDF.', 'error');
+          console.error('PDF View Error:', e);
+          // Specific alerts for common failures
+          showToast('Failed to view PDF. Please ensure a PDF viewer is installed and your connection is stable.', 'error');
         }
       }
     }
