@@ -10,7 +10,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context'; // FIX: Idinagdag ang SafeAreaView
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { changePassword } from '../services/auth';
 
 const ChangePasswordScreen = () => {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -25,7 +26,7 @@ const ChangePasswordScreen = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       setError('Please fill in all fields.');
       setSuccess(null);
@@ -45,15 +46,29 @@ const ChangePasswordScreen = () => {
     }
 
     setError(null);
+    setSuccess(null);
     setIsLoading(true);
     
-    setTimeout(() => {
+    try {
+      const response = await changePassword({
+        current_password: currentPassword,
+        new_password: newPassword,
+        new_password_confirmation: confirmPassword,
+      });
+
+      if (response.success) {
+        setSuccess(response.message || 'Password updated successfully!');
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        setError(response.message || 'Failed to update password.');
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
       setIsLoading(false);
-      setSuccess('Password updated successfully!');
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-    }, 1500);
+    }
   };
 
   const renderPasswordField = (
@@ -92,18 +107,17 @@ const ChangePasswordScreen = () => {
   );
 
   return (
-    // FIX: Binalot sa SafeAreaView para consistent
     <SafeAreaView style={{ flex: 1 }} className="bg-[#F9FBFA]" edges={['bottom', 'left', 'right']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
-        enabled={Platform.OS !== 'web'} // FIX: I-disable ang KeyboardAvoidingView sa Web para iwas scroll lock
+        enabled={Platform.OS !== 'web'}
       >
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{
             padding: 20,
-            paddingBottom: 100, // FIX: Dinagdagan ang padding bottom para hindi matakpan
+            paddingBottom: 100,
             flexGrow: 1,
           }}
           showsVerticalScrollIndicator={false}

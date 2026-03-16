@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -20,6 +21,7 @@ import { Dropdown } from 'react-native-element-dropdown';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useToast } from '../context/ToastContext';
 import { BASE_URL } from '../services/api';
+import { getToken } from '../services/keychain';
 import {
   College,
   Course,
@@ -38,6 +40,7 @@ const SettingsScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState<Partial<ProfileData>>({});
+  const [authToken, setAuthToken] = useState<string | null>(null);
 
   const [pendingProfilePic, setPendingProfilePic] = useState<{ uri: string } | null>(null);
   const [pendingRegForm, setPendingRegForm] = useState<any | null>(null);
@@ -47,7 +50,13 @@ const SettingsScreen = () => {
 
   const loadProfile = async () => {
     try {
-      const response = await fetchProfile();
+      const [response, token] = await Promise.all([
+        fetchProfile(),
+        getToken()
+      ]);
+
+      setAuthToken(token);
+
       if (response.success) {
         setProfile(response.data);
         setFormData(response.data);
@@ -144,9 +153,9 @@ const SettingsScreen = () => {
   const getAssetUrl = (path: string | null | undefined) => {
     if (!path) return null;
     if (path.startsWith('http')) return path;
-    
+
     let cleanPath = path.replace(/\\/g, '/');
-    
+
     if (!cleanPath.startsWith('storage/') && !cleanPath.includes('/storage/')) {
       cleanPath = `storage/${cleanPath}`; 
     }
@@ -156,9 +165,7 @@ const SettingsScreen = () => {
     return `${serverUrl}${cleanPath.startsWith('/') ? '' : '/'}${cleanPath}`;
   };
 
-  // FIX: Inayos ang Viewing capability para gumana sa Mobile at Web (Draft man o Saved)
   const viewSavedRegForm = async () => {
-    // 1. Kung may draft/pending file pa lang
     if (pendingRegForm) {
       if (Platform.OS === 'web') {
         try {
@@ -169,25 +176,47 @@ const SettingsScreen = () => {
           showToast('Could not preview the draft file.', 'error');
         }
       } else {
-        // Para sa mobile, bubuksan yung local URI
         try {
           await Linking.openURL(pendingRegForm.uri);
         } catch (err) {
           console.error("Couldn't open local file on mobile", err);
-          showToast('Cannot open file. Please ensure you have a PDF viewer installed.', 'error');
+          showToast('Cannot open file.', 'error');
         }
       }
-      return; // Exit para hindi na mag-run yung pang-saved file
+      return;
     }
-    
-    // 2. Kung naka-save na sa database (server file)
+
     if (profile?.registration_form) {
-      const url = getAssetUrl(profile.registration_form);
-      if (url) {
-        Linking.openURL(url).catch((err) => {
-          console.error("Couldn't load page", err);
-          showToast('Could not open the file.', 'error');
-        });
+      if (Platform.OS === 'web') {
+        const url = getAssetUrl(profile.registration_form);
+        if (url) window.open(url, '_blank');
+      } else {
+        try {
+          const url = getAssetUrl(profile.registration_form);
+          if (!url) return;
+
+          const fileUri = FileSystem.documentDirectory + 'reg_form.pdf';
+          const token = await getToken();
+
+          const downloadResumable = FileSystem.createDownloadResumable(
+            url,
+            fileUri,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Bypass-Tunnel-Reminder': 'true',
+              },
+            }
+          );
+
+          const result = await downloadResumable.downloadAsync();
+          if (result && result.uri) {
+            await Linking.openURL(result.uri);
+          }
+        } catch (e) {
+          console.error('PDF Download Error:', e);
+          showToast('Failed to download PDF.', 'error');
+        }
       }
     }
   };
@@ -305,7 +334,7 @@ const SettingsScreen = () => {
   };
 
   const displayPic = pendingProfilePic?.uri || getAssetUrl(profile?.profile_picture);
-  
+
   const displayRegFormName = pendingRegForm?.name
     ? pendingRegForm.name
     : (profile?.registration_form ? profile.registration_form.replace(/\\/g, '/').split('/').pop() : 'No file uploaded. Upload PDF only.');
@@ -437,7 +466,16 @@ const SettingsScreen = () => {
               <View className="relative mb-4">
                 <View className="w-32 h-32 rounded-full bg-slate-200 border-4 border-white shadow-lg overflow-hidden">
                   {displayPic ? (
-                    <Image source={{ uri: displayPic }} style={{ width: '100%', height: '100%' }} />
+                    <Image 
+                      source={{ 
+                        uri: displayPic,
+                        headers: {
+                          Authorization: `Bearer ${authToken}`,
+                          'Bypass-Tunnel-Reminder': 'true'
+                        }
+                      }} 
+                      style={{ width: '100%', height: '100%' }} 
+                    />
                   ) : (
                     <Ionicons name="person" size={64} color="#94a3b8" style={{ alignSelf: 'center', marginTop: 25 }} />
                   )}
@@ -451,13 +489,13 @@ const SettingsScreen = () => {
                   </TouchableOpacity>
                 )}
               </View>
-              
+
               {/* NAME AND BADGE SECTION */}
               <View className="flex-row items-center justify-center flex-wrap mt-1">
                 <Text className="text-xl font-bold text-slate-900 uppercase text-center mr-2">
                   {profile?.first_name} {profile?.last_name}
                 </Text>
-                
+
                 {/* VERIFIED BADGE */}
                 {profile?.is_qualified && (
                   <View className="bg-blue-50 px-2 py-1 rounded-full border border-blue-200 flex-row items-center">
@@ -466,7 +504,7 @@ const SettingsScreen = () => {
                   </View>
                 )}
               </View>
-              
+
             </View>
 
             {/* BASIC INFO */}
@@ -546,11 +584,9 @@ const SettingsScreen = () => {
                     </View>
                   </View>
 
-                  {/* FIX: Conditional Rendering ng Buttons base sa 'isEditing' state */}
                   {((pendingRegForm || profile?.registration_form) || (isEditing && canEdit)) && (
                     <View className="flex-row justify-end space-x-2 mt-2 border-t border-slate-200 pt-3">
 
-                      {/* Lilitaw lang ang REMOVE kapag Edit mode at may drafted file */}
                       {isEditing && pendingRegForm && (
                         <TouchableOpacity
                           onPress={removePendingRegForm}
@@ -560,7 +596,6 @@ const SettingsScreen = () => {
                         </TouchableOpacity>
                       )}
 
-                      {/* Laging lilitaw ang VIEW basta may file (mapa-draft man o saved) */}
                       {(pendingRegForm || profile?.registration_form) && (
                         <TouchableOpacity
                           onPress={viewSavedRegForm}
@@ -570,7 +605,6 @@ const SettingsScreen = () => {
                         </TouchableOpacity>
                       )}
 
-                      {/* Lilitaw lang ang UPLOAD/REPLACE kapag nasa Edit mode */}
                       {isEditing && canEdit && (
                         <TouchableOpacity
                           onPress={triggerDocumentUpload}

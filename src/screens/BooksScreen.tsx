@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,8 +17,10 @@ import {
 } from 'react-native';
 import Header from '../components/Header';
 import { useToast } from '../context/ToastContext';
+import { useCart } from '../context/CartContext';
 import { Book, fetchBooks } from '../services/books';
 import { addToCart } from '../services/cart';
+import { getToken } from '../services/keychain';
 
 const { width, height } = Dimensions.get('window');
 const COLUMN_WIDTH = (width - 64) / 2; // Adjusted for gap
@@ -80,12 +83,14 @@ const CustomDropdown = ({
 );
 
 const BooksScreen = () => {
+  const { refreshCartCount } = useCart();
   // State for data
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [cartLoading, setCartLoading] = useState(false);
   const [totalBooks, setTotalBooks] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [authToken, setAuthToken] = useState<string | null>(null);
 
   // State for filters
   const [search, setSearch] = useState('');
@@ -109,10 +114,14 @@ const BooksScreen = () => {
   const loadBooks = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await fetchBooks(page, LIMIT, search, orderBy, status);
+      const [result, token] = await Promise.all([
+        fetchBooks(page, LIMIT, search, orderBy, status),
+        getToken()
+      ]);
       setBooks(result.books || []);
       setTotalBooks(result.total || 0);
       setTotalPages(result.lastPage || 0);
+      setAuthToken(token);
     } catch (err) {
       console.error('Error in loadBooks:', err);
     } finally {
@@ -132,6 +141,8 @@ const BooksScreen = () => {
                                   result.message?.toLowerCase().includes('exist') ||
                                   result.message?.toLowerCase().includes('limit');
                 
+                await refreshCartCount();
+
                 showToast(
                   result.message || `"${selectedBook.title}" added to cart!`, 
                   isWarning ? 'warning' : 'success'
@@ -193,8 +204,22 @@ const BooksScreen = () => {
         style={{ width: COLUMN_WIDTH, zIndex: 1 }}
         onPress={() => toggleModal(true, item)}
       >
-        <View className="h-40 bg-slate-50 items-center justify-center p-4">
-          <Ionicons name="book-outline" size={60} color="#cbd5e1" />
+        <View className="h-40 bg-slate-50 items-center justify-center p-0">
+          {item.image_url ? (
+            <Image 
+              source={{ 
+                uri: item.image_url,
+                headers: {
+                  Authorization: `Bearer ${authToken}`,
+                  'Bypass-Tunnel-Reminder': 'true'
+                }
+              }} 
+              style={{ width: '100%', height: '100%' }} 
+              contentFit="cover" 
+            />
+          ) : (
+            <Ionicons name="book-outline" size={60} color="#cbd5e1" />
+          )}
           <View
             className={`absolute top-2 left-2 px-2 py-1 rounded-md ${isAvailable ? 'bg-green-500' : 'bg-red-500'}`}
           >

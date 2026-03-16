@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Modal,
   ScrollView,
   Text,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useCart } from '../context/CartContext';
 import {
   CartItem,
   checkout,
@@ -20,6 +21,7 @@ import {
   removeFromCart,
   validateCheckoutRules,
 } from '../services/cart';
+import { getToken } from '../services/keychain';
 
 const Checkbox = ({ checked, onPress }: { checked: boolean; onPress: () => void }) => (
   <TouchableOpacity
@@ -45,6 +47,9 @@ const CartScreen = ({ navigation }: any) => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [authToken, setAuthToken] = useState<string | null>(null);
+
+  const { refreshCartCount } = useCart();
 
   const [selectedItemDetails, setSelectedItemDetails] = useState<any | null>(null);
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
@@ -52,8 +57,12 @@ const CartScreen = ({ navigation }: any) => {
   const loadCart = async () => {
     try {
       setIsLoading(true);
-      const items = await fetchCartItems();
+      const [items, token] = await Promise.all([
+        fetchCartItems(),
+        getToken()
+      ]);
       setCartItems(items || []);
+      setAuthToken(token);
     } catch (error) {
       console.error('Failed to load cart:', error);
     } finally {
@@ -104,6 +113,7 @@ const CartScreen = ({ navigation }: any) => {
           if (result.success) {
             setCartItems((prev) => prev.filter((item) => (item.cart_id || item.id) !== idToUse));
             setSelectedItems((prev) => prev.filter((key) => key !== uniqueKey));
+            await refreshCartCount(); // REAL-TIME UPDATE
           } else {
             Alert.alert('Error', result.message || 'Failed to remove item.');
           }
@@ -127,6 +137,7 @@ const CartScreen = ({ navigation }: any) => {
           if (success) {
             setCartItems([]);
             setSelectedItems([]);
+            await refreshCartCount(); // REAL-TIME UPDATE
             Alert.alert('Success', 'Cart has been cleared.');
           } else {
             Alert.alert('Error', 'Failed to clear cart.');
@@ -168,6 +179,7 @@ const CartScreen = ({ navigation }: any) => {
             if (response && response.success) {
               setSelectedItems([]);
               await loadCart();
+              await refreshCartCount(); // REAL-TIME UPDATE
               
               Alert.alert('Success', 'Check out successful!', [
                 {
@@ -281,7 +293,17 @@ const CartScreen = ({ navigation }: any) => {
                     <TouchableOpacity className="flex-1 flex-row items-center" onPress={() => openDetailModal(details)} activeOpacity={0.7}>
                       <View className="w-[60px] h-[80px] bg-orange-50 rounded-lg overflow-hidden mr-3 items-center justify-center border border-orange-100">
                         {details.image_url ? (
-                          <Image source={{ uri: details.image_url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                          <Image 
+                            source={{ 
+                              uri: details.image_url,
+                              headers: {
+                                Authorization: `Bearer ${authToken}`,
+                                'Bypass-Tunnel-Reminder': 'true'
+                              }
+                            }} 
+                            style={{ width: '100%', height: '100%' }} 
+                            contentFit="cover" 
+                          />
                         ) : (
                           <Ionicons name={isBook ? 'book' : 'construct'} size={32} color="#9A3412" />
                         )}
@@ -319,7 +341,17 @@ const CartScreen = ({ navigation }: any) => {
                   <View className="items-center mb-6">
                     <View className="w-32 h-44 bg-orange-50 rounded-2xl items-center justify-center border border-orange-100 overflow-hidden shadow-md">
                       {selectedItemDetails.image_url ? (
-                        <Image source={{ uri: selectedItemDetails.image_url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                        <Image 
+                          source={{ 
+                            uri: selectedItemDetails.image_url,
+                            headers: {
+                              Authorization: `Bearer ${authToken}`,
+                              'Bypass-Tunnel-Reminder': 'true'
+                            }
+                          }} 
+                          style={{ width: '100%', height: '100%' }} 
+                          contentFit="cover" 
+                        />
                       ) : (
                         <Ionicons name={selectedItemDetails.author ? 'book-outline' : 'construct-outline'} size={64} color="#9A3412" />
                       )}

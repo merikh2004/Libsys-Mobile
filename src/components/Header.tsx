@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import React, { useState } from 'react';
 import {
   Image,
@@ -13,7 +14,8 @@ import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { RootStackParamList } from '../navigation/types';
 
-const Header = ({ navigation }: { navigation?: any }) => {
+const Header = () => {
+  const navigation = useNavigation<any>();
   const { logout, user } = useAuth();
   const { cartCount } = useCart();
   
@@ -28,10 +30,6 @@ const Header = ({ navigation }: { navigation?: any }) => {
 
   const handleNavigation = (screen: keyof RootStackParamList) => {
     setIsMenuVisible(false);
-    if (!navigation) {
-      console.warn("Navigation prop is missing in Header.");
-      return;
-    }
     setTimeout(() => {
       navigation.navigate(screen as any);
     }, 100);
@@ -54,7 +52,7 @@ const Header = ({ navigation }: { navigation?: any }) => {
 
         <View className="flex-row items-center gap-2">
           <TouchableOpacity 
-            onPress={() => navigation?.navigate('Cart')}
+            onPress={() => navigation.navigate('Cart')}
             className="relative p-1"
           >
             <Ionicons name="cart-outline" size={24} color="#334155" />
