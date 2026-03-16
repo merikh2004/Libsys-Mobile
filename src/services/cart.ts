@@ -123,10 +123,23 @@ export const addToCart = async (book: any): Promise<{ success: boolean; message?
     if (!bookId) return { success: false, message: 'Invalid Book ID' };
 
     const response = await api.post('/api/cart/add', { book_id: bookId });
-    const isSuccess = response.data && response.data.success !== false;
-    return { success: isSuccess, message: response.data && response.data.message };
+    
+    // Mas matibay na check: status code o success property
+    const isSuccess = 
+      response.status === 200 || 
+      response.status === 201 || 
+      response.data?.success === true || 
+      response.data?.success === 1;
+
+    return { 
+      success: !!isSuccess, 
+      message: response.data?.message || 'Item added to cart' 
+    };
   } catch (error: any) {
-    return { success: false, message: error.response?.data?.message || 'Failed to add item' };
+    return { 
+      success: false, 
+      message: error.response?.data?.message || error.message || 'Failed to add item' 
+    };
   }
 };
 

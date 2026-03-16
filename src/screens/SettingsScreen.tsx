@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import { Image } from 'expo-image';
 import * as FileSystem from 'expo-file-system/legacy';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -459,8 +459,6 @@ const SettingsScreen = () => {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#EA580C']} />}
         >
           <View className="p-6">
-            <Text className="text-3xl font-bold text-slate-900 mb-6">My Profile</Text>
-
             {/* PROFILE PICTURE SECTION */}
             <View className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8 items-center">
               <View className="relative mb-4">

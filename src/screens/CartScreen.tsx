@@ -74,9 +74,9 @@ const CartScreen = ({ navigation }: any) => {
     const unsubscribe = navigation?.addListener?.('focus', () => {
       loadCart();
     });
-    
+
     loadCart();
-    
+
     return () => {
       if (unsubscribe) unsubscribe();
     };
@@ -180,7 +180,7 @@ const CartScreen = ({ navigation }: any) => {
               setSelectedItems([]);
               await loadCart();
               await refreshCartCount(); // REAL-TIME UPDATE
-              
+
               Alert.alert('Success', 'Check out successful!', [
                 {
                   text: 'View Ticket',
@@ -233,15 +233,21 @@ const CartScreen = ({ navigation }: any) => {
     <SafeAreaView style={{ flex: 1, backgroundColor: '#FDFBF7' }} edges={['bottom', 'left', 'right']}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         <View className="p-6">
-          <View className="mb-2">
-            <Text className="text-3xl font-bold text-[#3E2723]">My Cart</Text>
-            <Text className="text-slate-500 mt-2 text-base">Review and checkout your items.</Text>
-          </View>
+          <View className="flex-row justify-between items-end mb-6">
+            {/* LEFT SIDE: Header & Description */}
+            <View className="flex-1">
+              <Text className="text-3xl font-bold text-[#3E2723]">Cart</Text>
+              <Text className="text-slate-500 mt-1 text-sm leading-tight" numberOfLines={2}>
+                Review and checkout your items.
+              </Text>
+            </View>
 
-          <View className="flex-row justify-end mb-6">
-            <View className="bg-white px-4 py-2 rounded-xl border border-orange-100 flex-row items-center shadow-sm">
+            {/* RIGHT SIDE: Item Counter Badge */}
+            <View className="bg-white px-4 py-2 rounded-xl border border-orange-100 flex-row items-center shadow-sm mb-1">
               <Ionicons name="cart-outline" size={18} color="#4B5563" />
-              <Text className="text-[#4B5563] ml-2 font-medium">{cartItems.length} items</Text>
+              <Text className="text-[#4B5563] ml-2 font-medium text-sm">
+                {cartItems.length} items
+              </Text>
             </View>
           </View>
 
@@ -293,16 +299,16 @@ const CartScreen = ({ navigation }: any) => {
                     <TouchableOpacity className="flex-1 flex-row items-center" onPress={() => openDetailModal(details)} activeOpacity={0.7}>
                       <View className="w-[60px] h-[80px] bg-orange-50 rounded-lg overflow-hidden mr-3 items-center justify-center border border-orange-100">
                         {details.image_url ? (
-                          <Image 
-                            source={{ 
+                          <Image
+                            source={{
                               uri: details.image_url,
                               headers: {
                                 Authorization: `Bearer ${authToken}`,
                                 'Bypass-Tunnel-Reminder': 'true'
                               }
-                            }} 
-                            style={{ width: '100%', height: '100%' }} 
-                            contentFit="cover" 
+                            }}
+                            style={{ width: '100%', height: '100%' }}
+                            contentFit="cover"
                           />
                         ) : (
                           <Ionicons name={isBook ? 'book' : 'construct'} size={32} color="#9A3412" />
@@ -341,16 +347,16 @@ const CartScreen = ({ navigation }: any) => {
                   <View className="items-center mb-6">
                     <View className="w-32 h-44 bg-orange-50 rounded-2xl items-center justify-center border border-orange-100 overflow-hidden shadow-md">
                       {selectedItemDetails.image_url ? (
-                        <Image 
-                          source={{ 
+                        <Image
+                          source={{
                             uri: selectedItemDetails.image_url,
                             headers: {
                               Authorization: `Bearer ${authToken}`,
                               'Bypass-Tunnel-Reminder': 'true'
                             }
-                          }} 
-                          style={{ width: '100%', height: '100%' }} 
-                          contentFit="cover" 
+                          }}
+                          style={{ width: '100%', height: '100%' }}
+                          contentFit="cover"
                         />
                       ) : (
                         <Ionicons name={selectedItemDetails.author ? 'book-outline' : 'construct-outline'} size={64} color="#9A3412" />

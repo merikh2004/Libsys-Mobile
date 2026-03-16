@@ -129,28 +129,43 @@ const BooksScreen = () => {
     }
   }, [page, search, orderBy, status]);
 
-    const handleAddToCart = async () => {
-      if (!selectedBook) return;
-      
-      setCartLoading(true);
-      const result = await addToCart(selectedBook);
-      setCartLoading(false);
-  
-              if (result.success) {
-                const isWarning = result.message?.toLowerCase().includes('already') || 
-                                  result.message?.toLowerCase().includes('exist') ||
-                                  result.message?.toLowerCase().includes('limit');
-                
-                await refreshCartCount();
+  const handleAddToCart = async () => {
+    if (!selectedBook) return;
 
-                showToast(
-                  result.message || `"${selectedBook.title}" added to cart!`, 
-                  isWarning ? 'warning' : 'success'
-                );
-                toggleModal(false);
-              } else {        showToast(result.message || 'Failed to add book to cart.', 'error');
+    setCartLoading(true);
+    try {
+      const result = await addToCart(selectedBook);
+
+      if (result.success) {
+        // ALWAYS await the count update to ensure it finishes before the toast
+        await refreshCartCount();
+
+        const isWarning = result.message?.toLowerCase().includes('already') ||
+          result.message?.toLowerCase().includes('exist') ||
+          result.message?.toLowerCase().includes('limit');
+
+        showToast(
+          result.message || `"${selectedBook.title}" added to cart!`,
+          isWarning ? 'warning' : 'success'
+        );
+        toggleModal(false);
+      } else {
+        // If the message says 'already exists', we might still want to refresh to be sure
+        if (result.message?.toLowerCase().includes('already')) {
+          await refreshCartCount();
+          showToast(result.message, 'warning');
+          toggleModal(false);
+        } else {
+          showToast(result.message || 'Failed to add book to cart.', 'error');
+        }
       }
-    };
+    } catch (err) {
+      console.error('Add to cart error:', err);
+      showToast('An unexpected error occurred.', 'error');
+    } finally {
+      setCartLoading(false);
+    }
+  };
   useEffect(() => {
     loadBooks();
   }, [page, search, orderBy, status]);

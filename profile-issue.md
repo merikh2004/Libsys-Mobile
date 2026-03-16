@@ -1,9 +1,9 @@
-# Comprehensive Troubleshooting Guide: Settings Screen & Profile Issues
+# Troubleshooting Guide: Settings Screen & PDF Issues
 
 ## 1. Root Cause Analysis
-The primary reason for blank profile data, "503/401 Server Errors", and missing profile pictures on Android physical devices is that **Localtunnel** requires explicit headers to bypass its warning page. Additionally, Laravel's protected assets require a valid **Bearer Token** for authentication.
+The primary reason for "503/401 Server Errors" and corrupted file downloads on Android physical devices is that **Localtunnel** requires explicit headers to bypass its warning page. 
 
-When the app fetches data or images through Localtunnel, it often receives an HTML "Click to Continue" page instead of the actual resource. To fix this, every request (including images and file downloads) must include the `Bypass-Tunnel-Reminder: true` header.
+When the app tries to download files (like the Registration Form PDF) through Localtunnel, it often catches an HTML "Click to Continue" page instead of the actual file. To fix this, every request—especially file downloads—must include the `Bypass-Tunnel-Reminder: true` header.
 
 ---
 
@@ -17,46 +17,8 @@ Before troubleshooting code, ensure your environment is correctly configured:
 
 ---
 
-## 3. Profile Image & Header Fix
-To display the profile picture correctly through the tunnel, the `<Image>` component needs to pass the Bearer token and the bypass header.
-
-### Step A: Add State for the Token
-In `SettingsScreen.tsx`, add a state variable to store the authentication token:
-```typescript
-const [authToken, setAuthToken] = useState<string | null>(null);
-```
-
-### Step B: Fetch the Token on Mount
-Use a `useEffect` hook to retrieve the token from the keychain:
-```typescript
-useEffect(() => {
-  const fetchToken = async () => {
-    const token = await getToken();
-    setAuthToken(token);
-  };
-  fetchToken();
-}, []);
-```
-
-### Step C: Update the Image Component
-Update your `<Image>` source to include the required headers:
-```tsx
-<Image
-  source={{
-    uri: `${API_BASE_URL}/storage/profile_images/${profileData.profile_image}`,
-    headers: {
-      Authorization: `Bearer ${authToken}`,
-      'Bypass-Tunnel-Reminder': 'true',
-    },
-  }}
-  style={styles.profileImage}
-/>
-```
-
----
-
-## 4. PDF Viewer Fix
-The "Deprecated PDF Viewer" error is resolved by using the legacy Expo FileSystem API and including the bypass headers in the download request.
+## 3. PDF Viewer Fix
+The "Deprecated PDF Viewer" or corrupted download error is resolved by using the legacy Expo FileSystem API and including the bypass headers in the download request.
 
 ### Updated `viewSavedRegForm` Function:
 Ensure you are importing from `expo-file-system/legacy`.
@@ -70,7 +32,7 @@ const viewSavedRegForm = async () => {
     const fileUri = FileSystem.documentDirectory + 'reg_form.pdf';
 
     const downloadResumable = FileSystem.createDownloadResumable(
-      `${API_BASE_URL}/api/profile/download-reg-form`,
+      `${API_BASE_URL}/storage/reg_forms/your_file.pdf`,
       fileUri,
       {
         headers: {
@@ -83,8 +45,9 @@ const viewSavedRegForm = async () => {
     const result = await downloadResumable.downloadAsync();
     
     if (result && result.uri) {
-      // Logic to open the PDF (e.g., using Sharing or a PDF viewer)
+      // Logic to open the PDF
       console.log('Finished downloading to ', result.uri);
+      await Linking.openURL(result.uri);
     }
   } catch (e) {
     console.error('PDF Download Error:', e);
@@ -94,8 +57,8 @@ const viewSavedRegForm = async () => {
 
 ---
 
-## 5. Fresh Start (Fixing 401 Errors)
-If you continue to see **401 Unauthorized** errors after applying the fixes:
+## 4. Fresh Start (Fixing 401 Errors)
+If you continue to see **401 Unauthorized** errors:
 1. **Log Out** of the app on your physical device.
 2. **Log In** again.
 This refreshes the Bearer Token stored in the keychain, ensuring the headers contain a valid, non-expired session key.
