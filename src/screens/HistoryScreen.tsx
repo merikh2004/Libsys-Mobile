@@ -196,7 +196,7 @@ const SummaryCard = ({
   </View>
 );
 
-const HistoryScreen = () => {
+const HistoryScreen = ({ navigation }: any) => {
   const [summary, setSummary] = useState<HistorySummary>({
     total_borrowed: 0,
     currently_borrowed: 0,
@@ -249,7 +249,7 @@ const HistoryScreen = () => {
 
   return (
     <View className="flex-1 bg-slate-50">
-      <Header />
+      <Header navigation={navigation} />
       <ScrollView
         className="flex-1 px-2 pt-4"
         showsVerticalScrollIndicator={false}

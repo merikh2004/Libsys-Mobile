@@ -20,7 +20,7 @@ const DetailRow = ({ label, value }: { label: string; value: string }) => (
   </View>
 );
 
-const QRScreen = () => {
+const QRScreen = ({ navigation }: any) => {
   const route = useRoute<RouteProp<MainTabParamList, 'QR'>>();
   const { showToast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
@@ -96,7 +96,7 @@ const QRScreen = () => {
   if (isLoading) {
     return (
       <View className="flex-1 bg-slate-50">
-        <Header />
+        <Header navigation={navigation} />
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#f97316" />
         </View>
@@ -118,7 +118,7 @@ const QRScreen = () => {
 
   return (
     <View className="flex-1 bg-slate-50">
-      <Header />
+      <Header navigation={navigation} />
       <ScrollView 
         className="flex-1 px-6 pt-7"
         showsVerticalScrollIndicator={false}

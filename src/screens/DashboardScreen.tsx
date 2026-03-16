@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Header from '../components/Header';
@@ -82,8 +81,7 @@ const BorrowedBookCard = ({ book }: { book: DashboardBook }) => (
   </View>
 );
 
-const DashboardScreen = () => {
-  const navigation = useNavigation<any>();
+const DashboardScreen = ({ navigation }: any) => {
   const { user } = useAuth();
   const [summary, setSummary] = useState({
     books_borrowed: 0,
@@ -134,7 +132,7 @@ const DashboardScreen = () => {
 
   return (
     <View className="flex-1 bg-slate-50">
-      <Header />
+      <Header navigation={navigation} />
       <ScrollView 
         className="flex-1 px-2 pt-4"
         showsVerticalScrollIndicator={false}
