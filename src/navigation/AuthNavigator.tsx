@@ -3,7 +3,7 @@ import React from 'react';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import LoginScreen from '../screens/LoginScreen';
 import OTPVerificationScreen from '../screens/OTPVerificationScreen';
-import ResetPasswordScreen from '../screens/ResetPasswordScreen'; // 1. INALIS ANG COMMENT DITO
+import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import { AuthStackParamList } from './types';
 
 const Stack = createStackNavigator<AuthStackParamList>();

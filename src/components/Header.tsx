@@ -1,6 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
 import React, { useState } from 'react';
 import {
   Image,
@@ -12,17 +10,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
 import { RootStackParamList } from '../navigation/types';
 
-const Header = () => {
+const Header = ({ navigation }: { navigation?: any }) => {
   const { logout, user } = useAuth();
-  
-  // Gumamit ng StackNavigationProp para mas accurate ang typing
-  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+  const { cartCount } = useCart();
   
   const [isMenuVisible, setIsMenuVisible] = useState(false);
 
-  // Function para makuha ang initials mula sa pangalan
   const getInitials = (name: string | undefined) => {
     if (!name) return 'U';
     const parts = name.trim().split(' ');
@@ -30,9 +26,12 @@ const Header = () => {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
-  // Function para isara ang modal bago mag-navigate (Prevents UI glitching)
   const handleNavigation = (screen: keyof RootStackParamList) => {
     setIsMenuVisible(false);
+    if (!navigation) {
+      console.warn("Navigation prop is missing in Header.");
+      return;
+    }
     setTimeout(() => {
       navigation.navigate(screen as any);
     }, 100);
@@ -54,8 +53,18 @@ const Header = () => {
         </View>
 
         <View className="flex-row items-center gap-2">
-          <TouchableOpacity onPress={() => navigation.navigate('Cart')}>
+          <TouchableOpacity 
+            onPress={() => navigation?.navigate('Cart')}
+            className="relative p-1"
+          >
             <Ionicons name="cart-outline" size={24} color="#334155" />
+            {cartCount > 0 && (
+              <View className="absolute -top-1 -right-1 bg-orange-600 rounded-full min-w-[18px] h-[18px] items-center justify-center px-1 border-2 border-white">
+                <Text className="text-white text-[10px] font-bold">
+                  {cartCount > 99 ? '99+' : cartCount}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
           <TouchableOpacity 
             onPress={() => setIsMenuVisible(true)}
