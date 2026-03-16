@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 import React, { useState } from 'react';
 import {
   Image,
@@ -14,8 +13,11 @@ import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { RootStackParamList } from '../navigation/types';
 
-const Header = () => {
-  const navigation = useNavigation<any>();
+interface HeaderProps {
+  navigation: any;
+}
+
+const Header = ({ navigation }: HeaderProps) => {
   const { logout, user } = useAuth();
   const { cartCount } = useCart();
   

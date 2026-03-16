@@ -82,7 +82,7 @@ const CustomDropdown = ({
   </View>
 );
 
-const BooksScreen = () => {
+const BooksScreen = ({ navigation }: any) => {
   const { refreshCartCount } = useCart();
   // State for data
   const [books, setBooks] = useState<Book[]>([]);
@@ -323,7 +323,7 @@ const BooksScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header />
+      <Header navigation={navigation} />
 
       <ScrollView
         className="flex-1 bg-slate-50"

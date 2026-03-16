@@ -14,7 +14,7 @@ import { format } from 'date-fns';
 import Header from '../components/Header';
 import { fetchAttendanceRecords, AttendanceRecord } from '../services/attendance';
 
-const AttendanceScreen = () => {
+const AttendanceScreen = ({ navigation }: any) => {
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [method, setMethod] = useState('All Methods');
@@ -77,7 +77,7 @@ const AttendanceScreen = () => {
 
   return (
     <View className="flex-1 bg-slate-50">
-      <Header />
+      <Header navigation={navigation} />
       <ScrollView 
         className="flex-1 px-6 pt-8"
         showsVerticalScrollIndicator={false}

@@ -48,12 +48,6 @@ const EmptyState = ({ navigation }: { navigation: any }) => (
     <Ionicons name="cart-outline" size={80} color="#9A3412" />
     <Text className="text-xl font-bold text-[#374151] mt-4">Empty Cart</Text>
     <Text className="text-slate-500 mt-2">Your cart is currently empty.</Text>
-    <TouchableOpacity 
-      onPress={() => navigation.navigate('Main', { screen: 'Books' })}
-      className="mt-6 bg-orange-600 px-8 py-3 rounded-xl shadow-sm"
-    >
-      <Text className="text-white font-bold">Browse Books</Text>
-    </TouchableOpacity>
   </View>
 );
 
