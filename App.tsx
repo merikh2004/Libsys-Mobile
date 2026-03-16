@@ -11,15 +11,15 @@ import "./src/styles/global.css";
 export default function App() {
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
-        <AuthProvider>
-          <CartProvider>
-            <ToastProvider>
+      <AuthProvider>
+        <CartProvider>
+          <ToastProvider>
+            <NavigationContainer>
               <AppNavigator />
-            </ToastProvider>
-          </CartProvider>
-        </AuthProvider>
-      </NavigationContainer>
+            </NavigationContainer>
+          </ToastProvider>
+        </CartProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

@@ -43,6 +43,20 @@ const DetailRow = ({ label, value, bold = false }: { label: string; value?: stri
   );
 };
 
+const EmptyState = ({ navigation }: { navigation: any }) => (
+  <View className="bg-white rounded-[24px] p-10 items-center border border-orange-100 shadow-sm justify-center min-h-[300px]">
+    <Ionicons name="cart-outline" size={80} color="#9A3412" />
+    <Text className="text-xl font-bold text-[#374151] mt-4">Empty Cart</Text>
+    <Text className="text-slate-500 mt-2">Your cart is currently empty.</Text>
+    <TouchableOpacity 
+      onPress={() => navigation.navigate('Main', { screen: 'Books' })}
+      className="mt-6 bg-orange-600 px-8 py-3 rounded-xl shadow-sm"
+    >
+      <Text className="text-white font-bold">Browse Books</Text>
+    </TouchableOpacity>
+  </View>
+);
+
 const CartScreen = ({ navigation }: any) => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -256,11 +270,7 @@ const CartScreen = ({ navigation }: any) => {
               <ActivityIndicator size="large" color="#EA580C" />
             </View>
           ) : cartItems.length === 0 ? (
-            <View className="bg-white rounded-[24px] p-10 items-center border border-orange-100 shadow-sm justify-center min-h-[300px]">
-              <Ionicons name="cart-outline" size={80} color="#9A3412" />
-              <Text className="text-xl font-bold text-[#374151] mt-4">Empty Cart</Text>
-              <Text className="text-slate-500 mt-2">Your cart is currently empty.</Text>
-            </View>
+            <EmptyState navigation={navigation} />
           ) : (
             <View>
               <View className="bg-white rounded-2xl p-5 mb-8 border border-orange-100 shadow-sm">
