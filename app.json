@@ -9,18 +9,24 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.josh29k.LibsysMobileTemp",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.josh29k.LibsysMobileTemp"
     },
     "web": {
       "output": "static",
-      "favicon": "./src/assets/logo.png"},
+      "favicon": "./src/assets/logo.png"
+    },
     "plugins": [
       "expo-router",
       "expo-secure-store",
@@ -29,6 +35,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d166916d-a16a-4e97-ae6d-92249cf66d4f"
+      }
     }
   }
 }

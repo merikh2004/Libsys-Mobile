@@ -1,61 +1,38 @@
-# Setup EAS Cloud Build for Android APK
+[FEAT] Standalone APK Build & Live Backend Integration
+Component
+[x] mobile-app (Android)
 
-This guide provides the steps to configure the project to build a standalone `.apk` file (instead of `.aab`) using EAS Cloud Build for direct distribution (ShareIt, Google Drive, etc.).
+[x] backend-api (Laravel)
 
-## 1. EAS CLI Installation & Login
-Install the EAS CLI globally and log in to your Expo account.
+[x] Shared/Database
 
-```bash
-# Install EAS CLI globally
-npm install -g eas-cli
+Problem Statement
+The current local development setup uses localhost or local IP addresses, which prevents the mobile application from connecting to the backend when installed as a standalone APK on different devices or networks. To meet project requirements, the system needs a "downloadable" APK that connects to a persistent, live server.
 
-# Log in to your Expo account
-eas login
-```
+Proposed Solution
+Configure the LibSys mobile application to use the production URL at https://libsys-backend.bscs3a.com. Additionally, utilize EAS Cloud Build to generate a standalone .apk file (using the preview profile) for direct distribution via file-sharing methods like Google Drive or ShareIt.
 
-## 2. Initialize EAS Configuration
-If you haven't already, initialize the EAS configuration in your project:
+Proposed Architecture (Mobile - MVVM/React Native)
+Entity/Model: Update models to handle absolute URL paths for assets (like book covers) hosted on the live server.
 
-```bash
-eas build:configure
-```
+Repository/ApiService: Replace the local development base URL with the production endpoint: https://libsys-backend.bscs3a.com/api.
 
-## 3. Configure `eas.json` for APK
-Update your `eas.json` to include the `"buildType": "apk"` setting. Your `eas.json` should look like this:
+ViewModel/View: Implement loading indicators and error handling to manage network latency and potential timeouts from the live cloud hosting.
 
-```json
-{
-  "cli": {
-    "version": ">= 14.0.0"
-  },
-  "build": {
-    "preview": {
-      "distribution": "internal",
-      "android": {
-        "buildType": "apk"
-      }
-    },
-    "production": {
-      "android": {
-        "buildType": "apk"
-      }
-    }
-  }
-}
-```
+Proposed Architecture (Backend - Laravel MVC)
+Routes: Optimize the existing api.php routes for production access.
 
-## 4. Run Cloud Build
-Run the build command for Android using the `preview` profile to get the APK:
+Controllers/Services: Ensure that file-handling logic and response paths are compatible with the production domain at libsys-backend.bscs3a.com.
 
-```bash
-eas build -p android --profile preview
-```
+Models/Migrations: Ensure the production MySQL database is synchronized with the latest local schema to support mobile data requests.
 
-## 5. Credentials & Keystore
-When prompted, allow Expo to handle the keystore generation automatically:
-- Select **"Generate a new Android Keystore"** (Press **Y** or **Enter**).
+Database Transition & Synchronization
+[x] This feature is designed to keep data in sync between the local mobile state and the remote MySQL server.
 
-## 6. Distribution
-Once the build is finished, EAS will provide a download link for the `.apk` file. You can then:
-- Download the APK.
-- Share it via ShareIt, Google Drive, or any direct file transfer method.
+Notes: The app.json must be updated with the package name com.joshuapaul.libsys to ensure the EAS build identifies the project correctly.
+
+Screenshots (if applicable)
+Production Status: The backend is successfully deployed and reachable at the production URL.
+
+Additional Context
+This feature is a critical step for the final submission of the LibSys project, transitioning it from a development environment to a ready-to-distribute mobile application.

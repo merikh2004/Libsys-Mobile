@@ -1,11 +1,10 @@
 // src/services/api.ts
 import { API_BASE_URL } from '@env';
 import axios from 'axios';
-import { Platform } from 'react-native'; // Import Platform
 import { getToken } from './keychain';
 
 // Base URL conditional based on platform
-export const BASE_URL = Platform.OS === 'web' ? 'http://127.0.0.1:8000' : API_BASE_URL;
+export const BASE_URL = API_BASE_URL;
 
 const api = axios.create({
   baseURL: BASE_URL, 
